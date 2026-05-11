@@ -1,12 +1,12 @@
 # ── Stage 1: Build React frontend ─────────────────────────────────────────────
 FROM node:20-alpine AS frontend-builder
 
-WORKDIR /frontend
+WORKDIR /front
 
-COPY admin-front/package*.json ./
+COPY front/package*.json ./
 RUN npm ci --prefer-offline
 
-COPY admin-front/ ./
+COPY front/ ./
 RUN npm run build
 
 # ── Stage 2: Build Go binary ───────────────────────────────────────────────────
@@ -17,8 +17,7 @@ WORKDIR /app
 COPY go.mod ./
 COPY *.go ./
 
-# Embed the built React assets
-COPY --from=frontend-builder /frontend/dist ./frontend/dist
+COPY --from=frontend-builder /front/dist ./front/dist
 
 RUN go mod tidy && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o server .

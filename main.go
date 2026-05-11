@@ -13,7 +13,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-//go:embed all:frontend/dist
+//go:embed all:front/dist
 var frontendFS embed.FS
 
 func main() {
@@ -60,7 +60,7 @@ func main() {
 }
 
 func spaHandler() http.HandlerFunc {
-	distFS, err := fs.Sub(frontendFS, "frontend/dist")
+	distFS, err := fs.Sub(frontendFS, "front/dist")
 	if err != nil {
 		log.Fatal("frontend embed error: ", err)
 	}
@@ -73,7 +73,7 @@ func spaHandler() http.HandlerFunc {
 		f, err := distFS.Open(path)
 		if err != nil {
 			// Serve index.html
-			index, _ := frontendFS.ReadFile("frontend/dist/index.html")
+			index, _ := frontendFS.ReadFile("front/dist/index.html")
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Write(index)
 			return

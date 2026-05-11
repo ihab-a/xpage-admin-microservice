@@ -1,5 +1,4 @@
-admin-front/node_modules/
-admin-front/dist/
-frontend/dist/
+front/node_modules/
+front/dist/
 *.env
 .env
