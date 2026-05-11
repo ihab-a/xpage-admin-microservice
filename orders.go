@@ -74,6 +74,12 @@ func handleListOrders(w http.ResponseWriter, r *http.Request) {
 		n++
 	}
 
+	if hostingID := q.Get("hosting_id"); hostingID != "" {
+		where = append(where, "hosting_id = $"+strconv.Itoa(n)+"::uuid")
+		args = append(args, hostingID)
+		n++
+	}
+
 	clause := ""
 	if len(where) > 0 {
 		clause = "WHERE " + strings.Join(where, " AND ")

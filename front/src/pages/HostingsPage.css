@@ -1,0 +1,92 @@
+.hostings-page {
+  padding: 28px 32px;
+  max-width: 1400px;
+}
+
+.hostings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .83rem;
+  min-width: 700px;
+}
+
+.hostings-table th {
+  text-align: left;
+  padding: 11px 14px;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  background: var(--card);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.hostings-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.hostings-table tr:last-child td { border-bottom: none; }
+.hosting-row:hover td { background: var(--hover-bg); }
+
+.hosting-name { font-weight: 600; font-size: .88rem; }
+.hosting-id { font-size: .72rem; color: var(--muted); font-family: monospace; margin-top: 2px; }
+
+.conn-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: .73rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.conn-paypal { background: rgba(0,156,222,.12); color: #009cde; }
+.conn-stripe { background: rgba(103,114,229,.12); color: #6772e5; }
+.conn-none   { background: var(--border); color: var(--muted); }
+
+.env-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 20px;
+  font-size: .7rem;
+  font-weight: 600;
+  background: rgba(245,158,11,.12);
+  color: #f59e0b;
+}
+.env-live {
+  background: rgba(16,185,129,.12);
+  color: #10b981;
+}
+
+.merchant-id {
+  font-family: monospace;
+  font-size: .72rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.conn-date {
+  font-size: .72rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.view-orders-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: .8rem;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  white-space: nowrap;
+}
+.view-orders-btn:hover { border-color: var(--accent); background: var(--accent-dim); }

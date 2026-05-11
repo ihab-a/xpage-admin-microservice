@@ -34,10 +34,11 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(corsMiddleware)
 
-	// Ingest endpoint — called by the Laravel backend
+	// Ingest endpoints — called by the Laravel backend
 	r.Group(func(r chi.Router) {
 		r.Use(IngestAuth(cfg.IngestSecret))
 		r.Post("/api/v1/ingest/order", handleIngestOrder)
+		r.Post("/api/v1/ingest/hosting-payment", handleIngestHostingPayment)
 	})
 
 	// Admin API
@@ -50,6 +51,7 @@ func main() {
 		r.Get("/api/v1/orders", handleListOrders)
 		r.Get("/api/v1/orders/stats", handleOrderStats)
 		r.Get("/api/v1/orders/{id}", handleShowOrder)
+		r.Get("/api/v1/hostings", handleListHostings)
 	})
 
 	// Serve React SPA for everything else

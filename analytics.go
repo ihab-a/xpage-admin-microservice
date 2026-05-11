@@ -95,7 +95,7 @@ func handleAnalytics(w http.ResponseWriter, r *http.Request) {
 		SELECT customer_email, COUNT(*) as orders, COALESCE(SUM(total),0) as revenue
 		FROM paid_orders
 		WHERE customer_email IS NOT NULL AND customer_email != ''
-		GROUP BY customer_email ORDER BY orders DESC LIMIT 10
+		GROUP BY customer_email ORDER BY orders DESC, revenue DESC LIMIT 10
 	`)
 	topBuyers := []map[string]any{}
 	for buyerRows.Next() {

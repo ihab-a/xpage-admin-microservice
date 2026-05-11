@@ -97,6 +97,21 @@ func migrate(ctx context.Context) error {
 		ALTER TABLE paid_orders ADD COLUMN IF NOT EXISTS traffic_source       TEXT;
 		ALTER TABLE paid_orders ADD COLUMN IF NOT EXISTS discount_code        TEXT;
 		ALTER TABLE paid_orders ADD COLUMN IF NOT EXISTS tip                  NUMERIC(10,2) NOT NULL DEFAULT 0;
+
+		CREATE TABLE IF NOT EXISTS connected_hostings (
+			id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			hosting_id           UUID NOT NULL UNIQUE,
+			hosting_name         TEXT,
+			paypal_merchant_id   TEXT,
+			stripe_user_id       TEXT,
+			paypal_connected_at  TIMESTAMPTZ,
+			stripe_connected_at  TIMESTAMPTZ,
+			paypal_livemode      BOOLEAN,
+			stripe_livemode      BOOLEAN,
+			updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+		CREATE INDEX IF NOT EXISTS idx_connected_hostings_hosting_id ON connected_hostings(hosting_id);
 	`)
 	return err
 }

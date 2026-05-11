@@ -58,6 +58,30 @@
 .method-select:focus { border-color: var(--accent); }
 .method-select option { background: var(--card); }
 
+.hosting-filter-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: .82rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.hosting-filter-clear {
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: .9rem;
+  line-height: 1;
+  padding: 0;
+}
+.hosting-filter-clear:hover { opacity: .7; }
+
 .page-error {
   background: rgba(239,68,68,.1);
   border: 1px solid rgba(239,68,68,.3);

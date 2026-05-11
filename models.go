@@ -66,6 +66,30 @@ type IngestPayload struct {
 	PaidAt             *int64          `json:"paid_at"`
 }
 
+type ConnectedHosting struct {
+	ID                string  `json:"id"`
+	HostingID         string  `json:"hosting_id"`
+	HostingName       *string `json:"hosting_name"`
+	PaypalMerchantID  *string `json:"paypal_merchant_id"`
+	StripeUserID      *string `json:"stripe_user_id"`
+	PaypalConnectedAt *int64  `json:"paypal_connected_at"`
+	StripeConnectedAt *int64  `json:"stripe_connected_at"`
+	PaypalLivemode    *bool   `json:"paypal_livemode"`
+	StripeLivemode    *bool   `json:"stripe_livemode"`
+	UpdatedAt         int64   `json:"updated_at"`
+	CreatedAt         int64   `json:"created_at"`
+}
+
+type HostingPaymentEvent struct {
+	HostingID    string  `json:"hosting_id"`
+	HostingName  string  `json:"hosting_name"`
+	Platform     string  `json:"platform"`
+	Event        string  `json:"event"`
+	MerchantID   *string `json:"merchant_id"`
+	StripeUserID *string `json:"stripe_user_id"`
+	Livemode     *bool   `json:"livemode"`
+}
+
 type Admin struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`

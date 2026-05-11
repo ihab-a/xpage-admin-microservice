@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import client from '../api/client';
 import './OrdersPage.css';
 
@@ -26,6 +26,7 @@ function formatDate(ts) {
 
 export default function OrdersPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [orders, setOrders] = useState([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, per_page: 25, pages: 1 });
   const [search, setSearch] = useState('');
@@ -34,6 +35,8 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const searchTimer = useRef(null);
+
+  const hostingId = searchParams.get('hosting_id') || '';
 
   const fetchOrders = useCallback(async (params) => {
     setLoading(true);
@@ -50,8 +53,14 @@ export default function OrdersPage() {
   }, []);
 
   useEffect(() => {
-    fetchOrders({ search, payment_method: paymentMethod || undefined, page, per_page: 25 });
-  }, [paymentMethod, page, fetchOrders]);
+    fetchOrders({
+      search,
+      payment_method: paymentMethod || undefined,
+      hosting_id: hostingId || undefined,
+      page,
+      per_page: 25,
+    });
+  }, [paymentMethod, page, hostingId, fetchOrders]);
 
   function handleSearchChange(e) {
     const val = e.target.value;
@@ -59,12 +68,23 @@ export default function OrdersPage() {
     setPage(1);
     clearTimeout(searchTimer.current);
     searchTimer.current = setTimeout(() => {
-      fetchOrders({ search: val, payment_method: paymentMethod || undefined, page: 1, per_page: 25 });
+      fetchOrders({
+        search: val,
+        payment_method: paymentMethod || undefined,
+        hosting_id: hostingId || undefined,
+        page: 1,
+        per_page: 25,
+      });
     }, 350);
   }
 
   function handleMethodChange(e) {
     setPaymentMethod(e.target.value);
+    setPage(1);
+  }
+
+  function clearHostingFilter() {
+    setSearchParams({});
     setPage(1);
   }
 
@@ -98,6 +118,13 @@ export default function OrdersPage() {
             <option key={m.value} value={m.value}>{m.label}</option>
           ))}
         </select>
+
+        {hostingId && (
+          <div className="hosting-filter-pill">
+            <span>Hosting: {hostingId.slice(0, 8)}…</span>
+            <button className="hosting-filter-clear" onClick={clearHostingFilter}>✕</button>
+          </div>
+        )}
       </div>
 
       {error && <div className="page-error">{error}</div>}
