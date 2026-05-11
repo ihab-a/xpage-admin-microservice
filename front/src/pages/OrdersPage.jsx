@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import client from '../api/client';
 import './OrdersPage.css';
 
@@ -23,34 +24,8 @@ function formatDate(ts) {
   });
 }
 
-function ProductList({ products }) {
-  if (!products?.length) return <span className="muted">—</span>;
-  return (
-    <div className="product-list">
-      {products.map((p, i) => (
-        <div key={i} className="product-item">
-          {p.image_path && (
-            <img
-              src={p.image_path}
-              alt={p.product_name || p.variant_title}
-              className="product-img"
-              onError={(e) => { e.target.style.display = 'none'; }}
-            />
-          )}
-          <div className="product-info">
-            <div className="product-name">{p.product_name || p.variant_title || '—'}</div>
-            {p.variant_title && p.product_name && (
-              <div className="product-variant">{p.variant_title}</div>
-            )}
-            <div className="product-qty">×{p.quantity} · {formatMoney(p.price)}</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default function OrdersPage() {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, per_page: 25, pages: 1 });
   const [search, setSearch] = useState('');
@@ -67,7 +42,7 @@ export default function OrdersPage() {
       const { data } = await client.get('/orders', { params });
       setOrders(data.data);
       setMeta(data.meta);
-    } catch (err) {
+    } catch {
       setError('Failed to load orders.');
     } finally {
       setLoading(false);
@@ -135,20 +110,18 @@ export default function OrdersPage() {
               <th>Customer</th>
               <th>Hosting</th>
               <th>Method</th>
-              <th>Products</th>
               <th>Total</th>
               <th>Discount</th>
-              <th>Landing Page</th>
               <th>Paid At</th>
             </tr>
           </thead>
           <tbody>
             {loading && orders.length === 0 ? (
-              <tr><td colSpan="9" className="table-empty">Loading…</td></tr>
+              <tr><td colSpan="7" className="table-empty">Loading…</td></tr>
             ) : orders.length === 0 ? (
-              <tr><td colSpan="9" className="table-empty">No orders found.</td></tr>
+              <tr><td colSpan="7" className="table-empty">No orders found.</td></tr>
             ) : orders.map((order) => (
-              <tr key={order.id}>
+              <tr key={order.id} className="order-row" onClick={() => navigate(`/orders/${order.id}`)}>
                 <td>
                   <span className="order-ref">{order.order_ref}</span>
                 </td>
@@ -170,19 +143,12 @@ export default function OrdersPage() {
                     <div className="card-info">{order.card_brand} ···{order.card_last4}</div>
                   )}
                 </td>
-                <td><ProductList products={order.products} /></td>
                 <td>
                   <span className="order-total">{formatMoney(order.total, order.currency)}</span>
-                  <div className="order-currency">{order.currency}</div>
                 </td>
                 <td>
                   {order.discount > 0
-                    ? <span className="discount">{formatMoney(order.discount, order.currency)}</span>
-                    : <span className="muted">—</span>}
-                </td>
-                <td>
-                  {order.landing_page_url
-                    ? <a href={order.landing_page_url} target="_blank" rel="noopener noreferrer" className="lp-link">View page ↗</a>
+                    ? <span className="discount">-{formatMoney(order.discount, order.currency)}</span>
                     : <span className="muted">—</span>}
                 </td>
                 <td className="paid-at">{formatDate(order.paid_at)}</td>
@@ -194,21 +160,11 @@ export default function OrdersPage() {
 
       {meta.pages > 1 && (
         <div className="pagination">
-          <button
-            className="page-btn"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
+          <button className="page-btn" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
             ← Prev
           </button>
-          <span className="page-info">
-            Page {page} of {meta.pages}
-          </span>
-          <button
-            className="page-btn"
-            disabled={page >= meta.pages}
-            onClick={() => setPage((p) => Math.min(meta.pages, p + 1))}
-          >
+          <span className="page-info">Page {page} of {meta.pages}</span>
+          <button className="page-btn" disabled={page >= meta.pages} onClick={() => setPage((p) => Math.min(meta.pages, p + 1))}>
             Next →
           </button>
         </div>

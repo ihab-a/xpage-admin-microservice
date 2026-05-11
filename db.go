@@ -87,6 +87,16 @@ func migrate(ctx context.Context) error {
 				ALTER TABLE paid_orders ADD CONSTRAINT uq_paid_orders_hosting_order UNIQUE (hosting_id, order_id);
 			END IF;
 		END $$;
+
+		ALTER TABLE paid_orders ADD COLUMN IF NOT EXISTS customer_address     TEXT;
+		ALTER TABLE paid_orders ADD COLUMN IF NOT EXISTS customer_city        TEXT;
+		ALTER TABLE paid_orders ADD COLUMN IF NOT EXISTS customer_state       TEXT;
+		ALTER TABLE paid_orders ADD COLUMN IF NOT EXISTS customer_postal_code TEXT;
+		ALTER TABLE paid_orders ADD COLUMN IF NOT EXISTS shipping_rate        NUMERIC(10,2) NOT NULL DEFAULT 0;
+		ALTER TABLE paid_orders ADD COLUMN IF NOT EXISTS shipping_name        TEXT;
+		ALTER TABLE paid_orders ADD COLUMN IF NOT EXISTS traffic_source       TEXT;
+		ALTER TABLE paid_orders ADD COLUMN IF NOT EXISTS discount_code        TEXT;
+		ALTER TABLE paid_orders ADD COLUMN IF NOT EXISTS tip                  NUMERIC(10,2) NOT NULL DEFAULT 0;
 	`)
 	return err
 }

@@ -6,7 +6,46 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/go-chi/chi/v5"
 )
+
+const orderSelectCols = `
+	id, hosting_id, hosting_name, order_id, order_ref,
+	payment_method, total, discount, currency,
+	card_last4, card_brand,
+	customer_first_name, customer_last_name, customer_email, customer_phone,
+	customer_address, customer_city, customer_state, customer_postal_code,
+	shipping_rate, shipping_name, traffic_source, discount_code, tip,
+	landing_page_url, products, paid_at, created_at`
+
+func scanOrder(scan func(...any) error) (PaidOrder, error) {
+	var o PaidOrder
+	var productsStr string
+	var paidAtTime *time.Time
+	var createdAtTime time.Time
+	err := scan(
+		&o.ID, &o.HostingID, &o.HostingName, &o.OrderID, &o.OrderRef,
+		&o.PaymentMethod, &o.Total, &o.Discount, &o.Currency,
+		&o.CardLast4, &o.CardBrand,
+		&o.CustomerFirstName, &o.CustomerLastName, &o.CustomerEmail, &o.CustomerPhone,
+		&o.CustomerAddress, &o.CustomerCity, &o.CustomerState, &o.CustomerPostalCode,
+		&o.ShippingRate, &o.ShippingName, &o.TrafficSource, &o.DiscountCode, &o.Tip,
+		&o.LandingPageURL, &productsStr, &paidAtTime, &createdAtTime,
+	)
+	if err != nil {
+		return o, err
+	}
+	if paidAtTime != nil {
+		ts := paidAtTime.Unix()
+		o.PaidAt = &ts
+	}
+	o.CreatedAt = createdAtTime.Unix()
+	o.Products = json.RawMessage(productsStr)
+	o.PaymentMethodLabel = paymentMethodLabel(o.PaymentMethod)
+	return o, nil
+}
 
 func handleListOrders(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
@@ -44,17 +83,9 @@ func handleListOrders(w http.ResponseWriter, r *http.Request) {
 	db.QueryRow(r.Context(), "SELECT COUNT(*) FROM paid_orders "+clause, args...).Scan(&total)
 
 	listArgs := append(args, perPage, offset)
-	rows, err := db.Query(r.Context(), `
-		SELECT
-			id, hosting_id, hosting_name, order_id, order_ref,
-			payment_method, total, discount, currency,
-			card_last4, card_brand,
-			customer_first_name, customer_last_name, customer_email, customer_phone,
-			landing_page_url, products, paid_at, created_at
-		FROM paid_orders
-		`+clause+`
-		ORDER BY paid_at DESC NULLS LAST
-		LIMIT $`+strconv.Itoa(n)+` OFFSET $`+strconv.Itoa(n+1),
+	rows, err := db.Query(r.Context(),
+		`SELECT `+orderSelectCols+` FROM paid_orders `+clause+
+			` ORDER BY paid_at DESC NULLS LAST LIMIT $`+strconv.Itoa(n)+` OFFSET $`+strconv.Itoa(n+1),
 		listArgs...,
 	)
 	if err != nil {
@@ -65,19 +96,11 @@ func handleListOrders(w http.ResponseWriter, r *http.Request) {
 
 	orders := []PaidOrder{}
 	for rows.Next() {
-		var o PaidOrder
-		var productsStr string
-		if err := rows.Scan(
-			&o.ID, &o.HostingID, &o.HostingName, &o.OrderID, &o.OrderRef,
-			&o.PaymentMethod, &o.Total, &o.Discount, &o.Currency,
-			&o.CardLast4, &o.CardBrand,
-			&o.CustomerFirstName, &o.CustomerLastName, &o.CustomerEmail, &o.CustomerPhone,
-			&o.LandingPageURL, &productsStr, &o.PaidAt, &o.CreatedAt,
-		); err != nil {
+		o, err := scanOrder(rows.Scan)
+		if err != nil {
 			continue
 		}
-		o.Products = json.RawMessage(productsStr)
-		o.PaymentMethodLabel = paymentMethodLabel(o.PaymentMethod)
+		o.Products = nil // omit products from list — load on detail page
 		orders = append(orders, o)
 	}
 
@@ -91,6 +114,19 @@ func handleListOrders(w http.ResponseWriter, r *http.Request) {
 			"pages":    pages,
 		},
 	})
+}
+
+func handleShowOrder(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	row := db.QueryRow(r.Context(),
+		`SELECT `+orderSelectCols+` FROM paid_orders WHERE id = $1`, id,
+	)
+	o, err := scanOrder(row.Scan)
+	if err != nil {
+		jsonError(w, "order not found", http.StatusNotFound)
+		return
+	}
+	jsonOK(w, map[string]any{"data": o})
 }
 
 func handleOrderStats(w http.ResponseWriter, r *http.Request) {

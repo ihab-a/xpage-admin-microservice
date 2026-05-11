@@ -59,7 +59,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	jsonOK(w, map[string]any{
 		"token": tokenStr,
-		"admin": Admin{ID: adminID, Name: name, Email: email, CreatedAt: createdAt},
+		"admin": Admin{ID: adminID, Name: name, Email: email, CreatedAt: createdAt.Unix()},
 	})
 }
 

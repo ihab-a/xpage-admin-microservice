@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Sidebar from './components/Sidebar';
 import LoginPage from './pages/LoginPage';
 import OrdersPage from './pages/OrdersPage';
+import OrderDetailPage from './pages/OrderDetailPage';
 import './index.css';
 
 function ProtectedLayout() {
@@ -15,6 +16,7 @@ function ProtectedLayout() {
       <main className="app-main">
         <Routes>
           <Route path="/orders" element={<OrdersPage />} />
+          <Route path="/orders/:id" element={<OrderDetailPage />} />
           <Route path="*" element={<Navigate to="/orders" replace />} />
         </Routes>
       </main>

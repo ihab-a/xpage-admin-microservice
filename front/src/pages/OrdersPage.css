@@ -105,7 +105,8 @@
 }
 
 .orders-table tr:last-child td { border-bottom: none; }
-.orders-table tr:hover td { background: rgba(255,255,255,.02); }
+.order-row { cursor: pointer; }
+.order-row:hover td { background: rgba(255,255,255,.04); }
 
 .table-empty {
   text-align: center;

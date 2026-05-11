@@ -48,6 +48,7 @@ func main() {
 		r.Get("/api/v1/auth/me", handleMe)
 		r.Get("/api/v1/orders", handleListOrders)
 		r.Get("/api/v1/orders/stats", handleOrderStats)
+		r.Get("/api/v1/orders/{id}", handleShowOrder)
 	})
 
 	// Serve React SPA for everything else
