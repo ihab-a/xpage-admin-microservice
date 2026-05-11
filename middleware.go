@@ -39,17 +39,19 @@ func AdminAuth(next http.Handler) http.Handler {
 		hash := sha256hex(raw)
 
 		var admin Admin
+		var createdAt time.Time
 		err := db.QueryRow(r.Context(), `
 			SELECT a.id, a.name, a.email, a.created_at
 			FROM admin_tokens t
 			JOIN admins a ON a.id = t.admin_id
 			WHERE t.token_hash = $1 AND t.expires_at > $2
-		`, hash, time.Now()).Scan(&admin.ID, &admin.Name, &admin.Email, &admin.CreatedAt)
+		`, hash, time.Now()).Scan(&admin.ID, &admin.Name, &admin.Email, &createdAt)
 
 		if err != nil {
 			jsonError(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
+		admin.CreatedAt = createdAt.Unix()
 
 		ctx := context.WithValue(r.Context(), ctxAdmin, admin)
 		next.ServeHTTP(w, r.WithContext(ctx))
