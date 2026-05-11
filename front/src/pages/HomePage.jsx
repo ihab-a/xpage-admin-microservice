@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   LineChart, Line, BarChart, Bar,
   PieChart, Pie, Cell, Tooltip, XAxis, YAxis,
-  ResponsiveContainer, CartesianGrid, Legend,
+  ResponsiveContainer, CartesianGrid,
 } from 'recharts';
 import client from '../api/client';
 import './HomePage.css';
@@ -138,21 +138,33 @@ export default function HomePage() {
         </Section>
       </div>
 
-      {/* Hourly — last 48h */}
-      <Section title="Orders &amp; Revenue — last 48 hours">
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={orders_per_hour} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="ts" tickFormatter={fmtHour} tick={{ fontSize: 11, fill: 'var(--muted)' }} tickLine={false} />
-            <YAxis yAxisId="left" tick={{ fontSize: 11, fill: 'var(--muted)' }} tickLine={false} axisLine={false} />
-            <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: 'var(--muted)' }} tickLine={false} axisLine={false} tickFormatter={fmtShort} />
-            <Tooltip content={<CustomTooltip labelFmt={fmtHour} />} />
-            <Legend wrapperStyle={{ fontSize: 12, color: 'var(--muted)' }} />
-            <Bar yAxisId="left" dataKey="orders" fill="#6772e5" name="Orders" radius={[3,3,0,0]} />
-            <Bar yAxisId="right" dataKey="revenue" fill="#10b981" name="Revenue" radius={[3,3,0,0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </Section>
+      <div className="charts-row">
+        {/* Orders per hour */}
+        <Section title="Orders per hour — last 48h">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={orders_per_hour} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="ts" tickFormatter={fmtHour} tick={{ fontSize: 11, fill: 'var(--muted)' }} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} tickLine={false} axisLine={false} allowDecimals={false} />
+              <Tooltip content={<CustomTooltip labelFmt={fmtHour} />} />
+              <Bar dataKey="orders" fill="#6772e5" name="Orders" radius={[3,3,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Section>
+
+        {/* Revenue per hour */}
+        <Section title="Revenue per hour — last 48h">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={orders_per_hour} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="ts" tickFormatter={fmtHour} tick={{ fontSize: 11, fill: 'var(--muted)' }} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--muted)' }} tickLine={false} axisLine={false} tickFormatter={fmtShort} />
+              <Tooltip content={<CustomTooltip labelFmt={fmtHour} />} />
+              <Bar dataKey="revenue" fill="#10b981" name="Revenue" radius={[3,3,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </Section>
+      </div>
 
       <div className="charts-row">
         {/* Payment method pie */}
