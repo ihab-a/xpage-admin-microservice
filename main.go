@@ -46,6 +46,7 @@ func main() {
 		r.Use(AdminAuth)
 		r.Delete("/api/v1/auth/logout", handleLogout)
 		r.Get("/api/v1/auth/me", handleMe)
+		r.Get("/api/v1/analytics", handleAnalytics)
 		r.Get("/api/v1/orders", handleListOrders)
 		r.Get("/api/v1/orders/stats", handleOrderStats)
 		r.Get("/api/v1/orders/{id}", handleShowOrder)

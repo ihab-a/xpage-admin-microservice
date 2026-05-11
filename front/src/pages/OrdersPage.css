@@ -100,13 +100,13 @@
 
 .orders-table td {
   padding: 11px 14px;
-  border-bottom: 1px solid rgba(255,255,255,.04);
+  border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
 
 .orders-table tr:last-child td { border-bottom: none; }
 .order-row { cursor: pointer; }
-.order-row:hover td { background: rgba(255,255,255,.04); }
+.order-row:hover td { background: var(--hover-bg); }
 
 .table-empty {
   text-align: center;

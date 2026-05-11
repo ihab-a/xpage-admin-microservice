@@ -9,6 +9,19 @@
   --accent:     #6772e5;
   --accent-dim: rgba(103, 114, 229, 0.12);
   --danger:     #ef4444;
+  --hover-bg:   rgba(255,255,255,.04);
+}
+
+[data-theme="light"] {
+  --bg:         #f0f2f5;
+  --card:       #ffffff;
+  --border:     #dde1e9;
+  --text:       #1a202c;
+  --muted:      #64748b;
+  --accent:     #6772e5;
+  --accent-dim: rgba(103, 114, 229, 0.10);
+  --danger:     #ef4444;
+  --hover-bg:   rgba(0,0,0,.04);
 }
 
 html, body, #root {

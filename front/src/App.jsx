@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Sidebar from './components/Sidebar';
 import LoginPage from './pages/LoginPage';
+import HomePage from './pages/HomePage';
 import OrdersPage from './pages/OrdersPage';
 import OrderDetailPage from './pages/OrderDetailPage';
 import './index.css';
@@ -15,9 +16,10 @@ function ProtectedLayout() {
       <Sidebar />
       <main className="app-main">
         <Routes>
+          <Route path="/" element={<HomePage />} />
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/orders/:id" element={<OrderDetailPage />} />
-          <Route path="*" element={<Navigate to="/orders" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </div>
