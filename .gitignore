@@ -1,0 +1,5 @@
+admin-front/node_modules/
+admin-front/dist/
+frontend/dist/
+*.env
+.env
