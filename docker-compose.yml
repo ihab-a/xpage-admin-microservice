@@ -1,0 +1,37 @@
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       admin_metrics
+      POSTGRES_USER:     metrics
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metrics -d admin_metrics"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  admin-service:
+    build:
+      context: ..                          # xpage/ parent — gives access to admin-front/
+      dockerfile: admin-service/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      PORT:           8080
+      DATABASE_URL:   postgres://metrics:${POSTGRES_PASSWORD:-changeme}@postgres:5432/admin_metrics?sslmode=disable
+      INGEST_SECRET:  ${INGEST_SECRET}     # shared secret — Laravel must set METRICS_SERVICE_SECRET to the same value
+      ADMIN_EMAIL:    ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_NAME:     ${ADMIN_NAME:-Admin}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
