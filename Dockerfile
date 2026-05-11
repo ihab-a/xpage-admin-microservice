@@ -1,7 +1,3 @@
-# Build context must be the xpage/ parent directory:
-#   docker build -f admin-service/Dockerfile ..
-# (docker-compose handles this automatically via context: ..)
-
 # ── Stage 1: Build React frontend ─────────────────────────────────────────────
 FROM node:20-alpine AS frontend-builder
 
@@ -18,8 +14,8 @@ FROM golang:1.22-alpine AS go-builder
 
 WORKDIR /app
 
-COPY admin-service/go.mod ./
-COPY admin-service/*.go ./
+COPY go.mod ./
+COPY *.go ./
 
 # Embed the built React assets
 COPY --from=frontend-builder /frontend/dist ./frontend/dist
