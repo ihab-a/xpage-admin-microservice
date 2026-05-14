@@ -1,0 +1,246 @@
+.plpg-page {
+  padding: 28px 32px;
+  max-width: 1400px;
+}
+
+.plpg-title-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.plpg-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* Source cards */
+.plpg-sources {
+  display: flex;
+  gap: 14px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.plpg-source-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  min-width: 220px;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.plpg-source-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--src-color, var(--accent));
+  border-radius: 10px 10px 0 0;
+}
+
+.plpg-source-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--src-color, var(--accent));
+  margin-bottom: 8px;
+}
+
+.plpg-source-name {
+  font-size: .85rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  font-family: monospace;
+  color: var(--text);
+}
+
+.plpg-source-limits {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.plpg-limit-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.plpg-limit-label {
+  font-size: .75rem;
+  color: var(--muted);
+}
+
+.plpg-limit-val {
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.plpg-source-usage {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.plpg-usage-count {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--src-color, var(--accent));
+  font-variant-numeric: tabular-nums;
+}
+
+.plpg-usage-label {
+  font-size: .78rem;
+  color: var(--muted);
+}
+
+/* Filters */
+.plpg-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.plpg-date-range {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.plpg-date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.plpg-date-label {
+  font-size: .75rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.plpg-date-input {
+  padding: 8px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: .83rem;
+  outline: none;
+  transition: border-color .15s;
+  cursor: pointer;
+  color-scheme: dark;
+}
+
+.plpg-date-input:focus { border-color: var(--accent); }
+
+.plpg-date-sep {
+  color: var(--muted);
+  font-size: .85rem;
+  padding-bottom: 10px;
+}
+
+/* Granularity buttons */
+.plpg-gran-group {
+  display: flex;
+  gap: 4px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.plpg-gran-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: .8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+}
+
+.plpg-gran-btn:hover:not(.disabled) {
+  background: var(--hover-bg);
+  color: var(--text);
+}
+
+.plpg-gran-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.plpg-gran-btn.disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+.plpg-source-select {
+  padding: 9px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: .83rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s;
+  min-width: 160px;
+}
+
+.plpg-source-select:focus { border-color: var(--accent); }
+.plpg-source-select option { background: var(--card); }
+
+/* Chart */
+.plpg-chart-card {
+  margin-top: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 16px 16px;
+  min-height: 340px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plpg-chart-state {
+  font-size: .9rem;
+  color: var(--text);
+}
+
+.plpg-chart-state.muted {
+  color: var(--muted);
+}
+
+.page-error {
+  background: rgba(239,68,68,.1);
+  border: 1px solid rgba(239,68,68,.3);
+  color: var(--danger);
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-top: 16px;
+  font-size: .85rem;
+}

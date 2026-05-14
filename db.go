@@ -112,6 +112,24 @@ func migrate(ctx context.Context) error {
 			created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 		CREATE INDEX IF NOT EXISTS idx_connected_hostings_hosting_id ON connected_hostings(hosting_id);
+
+		CREATE TABLE IF NOT EXISTS plpg_sources (
+			name                   TEXT PRIMARY KEY,
+			max_per_hour           INTEGER NOT NULL DEFAULT 0,
+			max_per_user_per_hour  INTEGER NOT NULL DEFAULT 0,
+			updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+
+		CREATE TABLE IF NOT EXISTS plpg_requests (
+			id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			source       TEXT NOT NULL,
+			user_id      TEXT NOT NULL,
+			requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+		CREATE INDEX IF NOT EXISTS idx_plpg_requests_source    ON plpg_requests(source);
+		CREATE INDEX IF NOT EXISTS idx_plpg_requests_at        ON plpg_requests(requested_at DESC);
+		CREATE INDEX IF NOT EXISTS idx_plpg_requests_source_at ON plpg_requests(source, requested_at DESC);
 	`)
 	return err
 }

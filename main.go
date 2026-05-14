@@ -39,6 +39,7 @@ func main() {
 		r.Use(IngestAuth(cfg.IngestSecret))
 		r.Post("/api/v1/ingest/order", handleIngestOrder)
 		r.Post("/api/v1/ingest/hosting-payment", handleIngestHostingPayment)
+		r.Post("/api/v1/ingest/plpg-request", handleIngestPlpgRequest)
 	})
 
 	// Admin API
@@ -52,6 +53,8 @@ func main() {
 		r.Get("/api/v1/orders/stats", handleOrderStats)
 		r.Get("/api/v1/orders/{id}", handleShowOrder)
 		r.Get("/api/v1/hostings", handleListHostings)
+		r.Get("/api/v1/plpg/sources", handlePlpgSources)
+		r.Get("/api/v1/plpg/usage", handlePlpgUsage)
 	})
 
 	// Serve React SPA for everything else

@@ -32,6 +32,21 @@ const NAV = [
       </svg>
     ),
   },
+  {
+    to: '/plpg',
+    label: 'PLPG',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 26 26" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <circle cx="13" cy="13" r="11.5" />
+        <circle cx="13" cy="13" r="8"    strokeWidth="1"   opacity=".5" />
+        <circle cx="13" cy="13" r="4.5"  strokeWidth="1"   opacity=".35" />
+        <circle cx="13" cy="13" r="1.8"  fill="currentColor" stroke="none" />
+        <path d="M13 3v2.5M13 20.5V23M3 13h2.5M20.5 13H23" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M7.5 7.5l1.8 1.8M16.7 16.7l1.8 1.8M18.5 7.5l-1.8 1.8M9.3 16.7l-1.8 1.8"
+          strokeWidth="1" strokeLinecap="round" opacity=".55" />
+      </svg>
+    ),
+  },
 ];
 
 function SunIcon() {
