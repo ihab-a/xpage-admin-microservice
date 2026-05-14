@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 )
@@ -21,9 +22,14 @@ func handleIngestPlpgRequest(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid json: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	if p.Source == "" || p.UserID == "" {
-		jsonError(w, "source and user_id are required", http.StatusBadRequest)
+	log.Printf("plpg ingest: source=%q user_id=%q", p.Source, p.UserID)
+
+	if p.Source == "" {
+		jsonError(w, "source is required", http.StatusBadRequest)
 		return
+	}
+	if p.UserID == "" {
+		p.UserID = "anonymous"
 	}
 
 	reqAt := time.Now()
