@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+// ── Ingest: PLPG request ─────────────────────────────────────────────────────
+
 type PlpgIngestPayload struct {
 	Source            string `json:"source"`
 	UserID            string `json:"user_id"`
@@ -22,6 +24,7 @@ func handleIngestPlpgRequest(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "invalid json: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+
 	log.Printf("plpg ingest: source=%q user_id=%q", p.Source, p.UserID)
 
 	if p.Source == "" {
@@ -62,10 +65,60 @@ func handleIngestPlpgRequest(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]any{"ok": true})
 }
 
+// ── Ingest: PLPG claim ───────────────────────────────────────────────────────
+
+type PlpgClaimPayload struct {
+	SessionID string `json:"session_id"`
+	ClaimedAt *int64 `json:"claimed_at"`
+}
+
+func handleIngestPlpgClaim(w http.ResponseWriter, r *http.Request) {
+	var p PlpgClaimPayload
+	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+		jsonError(w, "invalid json: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if p.SessionID == "" {
+		jsonError(w, "session_id is required", http.StatusBadRequest)
+		return
+	}
+
+	claimedAt := time.Now()
+	if p.ClaimedAt != nil {
+		claimedAt = time.Unix(*p.ClaimedAt, 0)
+	}
+
+	_, err := db.Exec(r.Context(), `
+		INSERT INTO plpg_claims (session_id, claimed_at) VALUES ($1, $2)
+	`, p.SessionID, claimedAt)
+	if err != nil {
+		jsonError(w, "db error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	jsonOK(w, map[string]any{"ok": true})
+}
+
+// ── Sources ──────────────────────────────────────────────────────────────────
+
 func handlePlpgSources(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(r.Context(), `
-		SELECT name, max_per_hour, max_per_user_per_hour, updated_at, created_at
-		FROM plpg_sources ORDER BY name
+		SELECT
+			s.name,
+			s.max_per_hour,
+			s.max_per_user_per_hour,
+			COALESCE(u.cnt, 0) AS current_hour_usage,
+			s.updated_at,
+			s.created_at
+		FROM plpg_sources s
+		LEFT JOIN (
+			SELECT source, COUNT(*) AS cnt
+			FROM plpg_requests
+			WHERE requested_at >= date_trunc('hour', NOW() AT TIME ZONE 'UTC')
+			  AND requested_at <  date_trunc('hour', NOW() AT TIME ZONE 'UTC') + INTERVAL '1 hour'
+			GROUP BY source
+		) u ON u.source = s.name
+		ORDER BY s.name
 	`)
 	if err != nil {
 		jsonError(w, "db error: "+err.Error(), http.StatusInternalServerError)
@@ -77,6 +130,7 @@ func handlePlpgSources(w http.ResponseWriter, r *http.Request) {
 		Name              string    `json:"name"`
 		MaxPerHour        int       `json:"max_per_hour"`
 		MaxPerUserPerHour int       `json:"max_per_user_per_hour"`
+		CurrentHourUsage  int64     `json:"current_hour_usage"`
 		UpdatedAt         time.Time `json:"updated_at"`
 		CreatedAt         time.Time `json:"created_at"`
 	}
@@ -84,7 +138,10 @@ func handlePlpgSources(w http.ResponseWriter, r *http.Request) {
 	sources := []Source{}
 	for rows.Next() {
 		var s Source
-		if err := rows.Scan(&s.Name, &s.MaxPerHour, &s.MaxPerUserPerHour, &s.UpdatedAt, &s.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&s.Name, &s.MaxPerHour, &s.MaxPerUserPerHour,
+			&s.CurrentHourUsage, &s.UpdatedAt, &s.CreatedAt,
+		); err != nil {
 			jsonError(w, "scan error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -94,6 +151,8 @@ func handlePlpgSources(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]any{"data": sources})
 }
 
+// ── Usage time-series ────────────────────────────────────────────────────────
+
 func handlePlpgUsage(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	granularity := q.Get("granularity")
@@ -101,19 +160,9 @@ func handlePlpgUsage(w http.ResponseWriter, r *http.Request) {
 	toStr := q.Get("to")
 	source := q.Get("source")
 
-	var truncExpr string
-	switch granularity {
-	case "hour":
-		truncExpr = "date_trunc('hour', requested_at AT TIME ZONE 'UTC')"
-	case "month":
-		truncExpr = "date_trunc('month', requested_at AT TIME ZONE 'UTC')"
-	case "year":
-		truncExpr = "date_trunc('year', requested_at AT TIME ZONE 'UTC')"
-	default:
-		truncExpr = "date_trunc('day', requested_at AT TIME ZONE 'UTC')"
-	}
+	truncExpr := safeTruncExpr(granularity, "requested_at")
 
-	from := time.Now().AddDate(0, -1, 0)
+	from := time.Now().Add(-24 * time.Hour)
 	to := time.Now()
 	if fromStr != "" {
 		if t, err := time.Parse(time.RFC3339, fromStr); err == nil {
@@ -168,4 +217,77 @@ func handlePlpgUsage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonOK(w, map[string]any{"data": buckets})
+}
+
+// ── Claims time-series ───────────────────────────────────────────────────────
+
+func handlePlpgClaims(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	granularity := q.Get("granularity")
+	fromStr := q.Get("from")
+	toStr := q.Get("to")
+
+	truncExpr := safeTruncExpr(granularity, "claimed_at")
+
+	from := time.Now().Add(-24 * time.Hour)
+	to := time.Now()
+	if fromStr != "" {
+		if t, err := time.Parse(time.RFC3339, fromStr); err == nil {
+			from = t
+		}
+	}
+	if toStr != "" {
+		if t, err := time.Parse(time.RFC3339, toStr); err == nil {
+			to = t
+		}
+	}
+
+	sql := fmt.Sprintf(`
+		SELECT
+			EXTRACT(EPOCH FROM %s)::bigint AS ts,
+			COUNT(*)::bigint AS count
+		FROM plpg_claims
+		WHERE claimed_at >= $1 AND claimed_at <= $2
+		GROUP BY ts
+		ORDER BY ts
+	`, truncExpr)
+
+	rows, err := db.Query(r.Context(), sql, from, to)
+	if err != nil {
+		jsonError(w, "db error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	type Bucket struct {
+		Ts    int64 `json:"ts"`
+		Count int64 `json:"count"`
+	}
+
+	buckets := []Bucket{}
+	for rows.Next() {
+		var b Bucket
+		if err := rows.Scan(&b.Ts, &b.Count); err != nil {
+			jsonError(w, "scan error: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		buckets = append(buckets, b)
+	}
+
+	jsonOK(w, map[string]any{"data": buckets})
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+func safeTruncExpr(granularity, col string) string {
+	switch granularity {
+	case "hour":
+		return fmt.Sprintf("date_trunc('hour', %s AT TIME ZONE 'UTC')", col)
+	case "month":
+		return fmt.Sprintf("date_trunc('month', %s AT TIME ZONE 'UTC')", col)
+	case "year":
+		return fmt.Sprintf("date_trunc('year', %s AT TIME ZONE 'UTC')", col)
+	default:
+		return fmt.Sprintf("date_trunc('day', %s AT TIME ZONE 'UTC')", col)
+	}
 }

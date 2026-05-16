@@ -67,6 +67,62 @@
   color: var(--text);
 }
 
+/* Quota display */
+.plpg-quota-row {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.plpg-quota-used {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--src-color, var(--accent));
+  font-variant-numeric: tabular-nums;
+}
+
+.plpg-quota-sep {
+  font-size: .9rem;
+  color: var(--muted);
+}
+
+.plpg-quota-limit {
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.plpg-quota-label {
+  font-size: .75rem;
+  color: var(--muted);
+  margin-left: 2px;
+}
+
+/* Progress bar */
+.plpg-progress-track {
+  height: 5px;
+  background: var(--hover-bg, rgba(128,128,128,.15));
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.plpg-progress-fill {
+  height: 100%;
+  background: var(--src-color, var(--accent));
+  border-radius: 99px;
+  transition: width .3s ease;
+  min-width: 0;
+}
+
+.plpg-remaining {
+  font-size: .75rem;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+
 .plpg-source-limits {
   display: flex;
   flex-direction: column;
@@ -220,15 +276,37 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 20px 16px 16px;
-  min-height: 340px;
+}
+
+.plpg-chart-card--claims {
+  margin-top: 16px;
+}
+
+.plpg-chart-header {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.plpg-chart-title {
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.plpg-chart-total {
+  font-size: .78rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .plpg-chart-state {
   font-size: .9rem;
   color: var(--text);
+  text-align: center;
+  padding: 48px 0;
 }
 
 .plpg-chart-state.muted {

@@ -40,6 +40,7 @@ func main() {
 		r.Post("/api/v1/ingest/order", handleIngestOrder)
 		r.Post("/api/v1/ingest/hosting-payment", handleIngestHostingPayment)
 		r.Post("/api/v1/ingest/plpg-request", handleIngestPlpgRequest)
+		r.Post("/api/v1/ingest/plpg-claim", handleIngestPlpgClaim)
 	})
 
 	// Admin API
@@ -55,6 +56,7 @@ func main() {
 		r.Get("/api/v1/hostings", handleListHostings)
 		r.Get("/api/v1/plpg/sources", handlePlpgSources)
 		r.Get("/api/v1/plpg/usage", handlePlpgUsage)
+		r.Get("/api/v1/plpg/claims", handlePlpgClaims)
 	})
 
 	// Serve React SPA for everything else

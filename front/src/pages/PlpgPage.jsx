@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import client from '../api/client';
 import './PlpgPage.css';
@@ -13,18 +13,18 @@ const GRANULARITIES = [
 ];
 
 const SOURCE_COLORS = ['#6772e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+const CLAIMS_COLOR  = '#06b6d4';
 
 function granularityEnabled(g, from, to) {
   const diffDays = (to - from) / 86400000;
-  if (g === 'hour')  return diffDays < 2;
-  if (g === 'day')   return diffDays / 30 <= 4;
+  if (g === 'hour') return diffDays < 2;
+  if (g === 'day')  return diffDays / 30 <= 4;
   return true;
 }
 
 function coerceGranularity(current, from, to) {
   if (granularityEnabled(current, from, to)) return current;
-  const order = ['hour', 'day', 'month', 'year'];
-  return order.find(g => granularityEnabled(g, from, to)) ?? 'month';
+  return ['hour', 'day', 'month', 'year'].find(g => granularityEnabled(g, from, to)) ?? 'month';
 }
 
 function formatBucketLabel(ts, granularity) {
@@ -50,6 +50,25 @@ function pivotBuckets(buckets, granularity) {
   return Array.from(map.values()).sort((a, b) => a.ts - b.ts);
 }
 
+function pivotClaims(data, granularity) {
+  return data.map(b => ({
+    ts:     b.ts,
+    label:  formatBucketLabel(b.ts, granularity),
+    claims: Number(b.count),
+  })).sort((a, b) => a.ts - b.ts);
+}
+
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function endOfToday() {
+  const d = new Date();
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
 function PlpgIcon() {
   return (
     <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -68,28 +87,44 @@ function PlpgIcon() {
   );
 }
 
-export default function PlpgPage() {
-  const initTo   = () => new Date();
-  const initFrom = () => new Date(Date.now() - 7 * 86400000);
+const tooltipStyle = {
+  contentStyle: {
+    background: 'var(--card)',
+    border: '1px solid var(--border)',
+    borderRadius: 8,
+    fontSize: 12,
+    color: 'var(--text)',
+  },
+  cursor: { stroke: 'var(--border)', strokeWidth: 1 },
+};
 
-  const [from, setFrom]           = useState(initFrom);
-  const [to,   setTo]             = useState(initTo);
-  const [granularity, setGran]    = useState('day');
+export default function PlpgPage() {
+  const [from, setFrom]           = useState(startOfToday);
+  const [to,   setTo]             = useState(endOfToday);
+  const [granularity, setGran]    = useState('hour');
   const [sourceFilter, setSrcFilter] = useState('');
+
   const [sources, setSources]     = useState([]);
   const [buckets, setBuckets]     = useState([]);
-  const [loading, setLoading]     = useState(true);
+  const [claims,  setClaims]      = useState([]);
+
+  const [loadingSources, setLoadingSources] = useState(true);
+  const [loadingUsage,   setLoadingUsage]   = useState(true);
+  const [loadingClaims,  setLoadingClaims]  = useState(true);
   const [error, setError]         = useState('');
 
   const fetchSources = useCallback(async () => {
+    setLoadingSources(true);
     try {
       const { data } = await client.get('/plpg/sources');
       setSources(data.data ?? []);
-    } catch { /* silent */ }
+    } catch { /* silent */ } finally {
+      setLoadingSources(false);
+    }
   }, []);
 
   const fetchUsage = useCallback(async (f, t, gran, src) => {
-    setLoading(true);
+    setLoadingUsage(true);
     setError('');
     try {
       const { data } = await client.get('/plpg/usage', {
@@ -102,9 +137,25 @@ export default function PlpgPage() {
       });
       setBuckets(data.data ?? []);
     } catch {
-      setError('Failed to load PLPG usage data.');
+      setError('Failed to load usage data.');
     } finally {
-      setLoading(false);
+      setLoadingUsage(false);
+    }
+  }, []);
+
+  const fetchClaims = useCallback(async (f, t, gran) => {
+    setLoadingClaims(true);
+    try {
+      const { data } = await client.get('/plpg/claims', {
+        params: {
+          from:        f.toISOString(),
+          to:          t.toISOString(),
+          granularity: gran,
+        },
+      });
+      setClaims(data.data ?? []);
+    } catch { /* silent */ } finally {
+      setLoadingClaims(false);
     }
   }, []);
 
@@ -112,27 +163,28 @@ export default function PlpgPage() {
 
   useEffect(() => {
     fetchUsage(from, to, granularity, sourceFilter);
-  }, [from, to, granularity, sourceFilter, fetchUsage]);
+    fetchClaims(from, to, granularity);
+  }, [from, to, granularity, sourceFilter, fetchUsage, fetchClaims]);
 
-  function handleFromChange(e) {
-    const newFrom = new Date(e.target.value);
-    if (isNaN(newFrom)) return;
-    const newGran = coerceGranularity(granularity, newFrom, to);
+  function applyRange(newFrom, newTo) {
+    const newGran = coerceGranularity(granularity, newFrom, newTo);
     setFrom(newFrom);
-    if (newGran !== granularity) setGran(newGran);
-  }
-
-  function handleToChange(e) {
-    const newTo = new Date(e.target.value);
-    if (isNaN(newTo)) return;
-    const newGran = coerceGranularity(granularity, from, newTo);
     setTo(newTo);
     if (newGran !== granularity) setGran(newGran);
   }
 
+  function handleFromChange(e) {
+    const d = new Date(e.target.value);
+    if (!isNaN(d)) applyRange(d, to);
+  }
+
+  function handleToChange(e) {
+    const d = new Date(e.target.value);
+    if (!isNaN(d)) applyRange(from, d);
+  }
+
   function handleGranChange(g) {
-    if (!granularityEnabled(g, from, to)) return;
-    setGran(g);
+    if (granularityEnabled(g, from, to)) setGran(g);
   }
 
   const allSources = Array.from(new Set([
@@ -141,46 +193,70 @@ export default function PlpgPage() {
   ]));
 
   const visibleSources = sourceFilter ? [sourceFilter] : allSources;
-  const chartData = pivotBuckets(buckets, granularity);
-  const totalReqs = buckets.reduce((s, b) => s + Number(b.count), 0);
+  const chartData      = pivotBuckets(buckets, granularity);
+  const claimsData     = pivotClaims(claims, granularity);
+  const totalReqs      = buckets.reduce((s, b) => s + Number(b.count), 0);
+  const totalClaims    = claims.reduce((s, b) => s + Number(b.count), 0);
 
   return (
     <div className="plpg-page">
       <div className="page-header">
         <div className="plpg-title-row">
-          <div className="plpg-icon-wrap">
-            <PlpgIcon />
-          </div>
+          <div className="plpg-icon-wrap"><PlpgIcon /></div>
           <div>
             <h1 className="page-title">PLPG</h1>
             <p className="page-sub">
-              {loading ? 'Loading…' : `${totalReqs.toLocaleString()} successful authentications in range`}
+              {loadingUsage
+                ? 'Loading…'
+                : `${totalReqs.toLocaleString()} authentications · ${totalClaims.toLocaleString()} claims in range`}
             </p>
           </div>
         </div>
       </div>
 
-      {sources.length > 0 && (
+      {/* Source cards */}
+      {!loadingSources && sources.length > 0 && (
         <div className="plpg-sources">
           {sources.map((src, i) => {
-            const color = SOURCE_COLORS[i % SOURCE_COLORS.length];
-            const srcTotal = buckets
+            const color      = SOURCE_COLORS[i % SOURCE_COLORS.length];
+            const used       = Number(src.current_hour_usage);
+            const limit      = src.max_per_hour;
+            const pct        = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+            const remaining  = Math.max(0, limit - used);
+            const srcTotal   = buckets
               .filter(b => b.source === src.name)
               .reduce((s, b) => s + Number(b.count), 0);
             return (
               <div key={src.name} className="plpg-source-card" style={{ '--src-color': color }}>
                 <div className="plpg-source-dot" />
                 <div className="plpg-source-name">{src.name}</div>
+
+                <div className="plpg-quota-row">
+                  <span className="plpg-quota-used">{used.toLocaleString()}</span>
+                  <span className="plpg-quota-sep">/</span>
+                  <span className="plpg-quota-limit">{limit.toLocaleString()}</span>
+                  <span className="plpg-quota-label"> this hour</span>
+                </div>
+
+                <div className="plpg-progress-track">
+                  <div className="plpg-progress-fill" style={{ width: `${pct}%` }} />
+                </div>
+
+                <div className="plpg-remaining">
+                  {remaining.toLocaleString()} remaining
+                </div>
+
                 <div className="plpg-source-limits">
                   <div className="plpg-limit-item">
-                    <span className="plpg-limit-label">Global limit / hr</span>
-                    <span className="plpg-limit-val">{src.max_per_hour.toLocaleString()}</span>
+                    <span className="plpg-limit-label">Global limit/hr</span>
+                    <span className="plpg-limit-val">{limit.toLocaleString()}</span>
                   </div>
                   <div className="plpg-limit-item">
-                    <span className="plpg-limit-label">Per user / hr</span>
+                    <span className="plpg-limit-label">Per user/hr</span>
                     <span className="plpg-limit-val">{src.max_per_user_per_hour.toLocaleString()}</span>
                   </div>
                 </div>
+
                 <div className="plpg-source-usage">
                   <span className="plpg-usage-count">{srcTotal.toLocaleString()}</span>
                   <span className="plpg-usage-label"> reqs in range</span>
@@ -191,37 +267,29 @@ export default function PlpgPage() {
         </div>
       )}
 
+      {/* Filters */}
       <div className="plpg-filters">
         <div className="plpg-date-range">
           <div className="plpg-date-field">
             <label className="plpg-date-label">From</label>
-            <input
-              type="datetime-local"
-              className="plpg-date-input"
-              value={toDatetimeLocal(from)}
-              onChange={handleFromChange}
-            />
+            <input type="datetime-local" className="plpg-date-input"
+              value={toDatetimeLocal(from)} onChange={handleFromChange} />
           </div>
           <span className="plpg-date-sep">→</span>
           <div className="plpg-date-field">
             <label className="plpg-date-label">To</label>
-            <input
-              type="datetime-local"
-              className="plpg-date-input"
-              value={toDatetimeLocal(to)}
-              onChange={handleToChange}
-            />
+            <input type="datetime-local" className="plpg-date-input"
+              value={toDatetimeLocal(to)} onChange={handleToChange} />
           </div>
         </div>
 
         <div className="plpg-gran-group">
           {GRANULARITIES.map(g => {
             const enabled = granularityEnabled(g.value, from, to);
-            const active  = granularity === g.value;
             return (
               <button
                 key={g.value}
-                className={`plpg-gran-btn${active ? ' active' : ''}${!enabled ? ' disabled' : ''}`}
+                className={`plpg-gran-btn${granularity === g.value ? ' active' : ''}${!enabled ? ' disabled' : ''}`}
                 onClick={() => handleGranChange(g.value)}
                 disabled={!enabled}
                 title={!enabled ? 'Not available for the selected range' : undefined}
@@ -233,64 +301,80 @@ export default function PlpgPage() {
         </div>
 
         {allSources.length > 1 && (
-          <select
-            className="plpg-source-select"
-            value={sourceFilter}
-            onChange={e => setSrcFilter(e.target.value)}
-          >
+          <select className="plpg-source-select" value={sourceFilter}
+            onChange={e => setSrcFilter(e.target.value)}>
             <option value="">All sources</option>
-            {allSources.map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
+            {allSources.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         )}
       </div>
 
       {error && <div className="page-error">{error}</div>}
 
+      {/* Authentications chart */}
       <div className="plpg-chart-card">
-        {loading ? (
+        <div className="plpg-chart-header">
+          <span className="plpg-chart-title">Authentications</span>
+          <span className="plpg-chart-total">{totalReqs.toLocaleString()} total</span>
+        </div>
+        {loadingUsage ? (
           <div className="plpg-chart-state">Loading…</div>
         ) : chartData.length === 0 ? (
           <div className="plpg-chart-state muted">No data in selected range.</div>
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData} margin={{ top: 8, right: 20, left: 0, bottom: 4 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.06)" vertical={false} />
-              <XAxis
-                dataKey="label"
-                tick={{ fill: 'var(--muted)', fontSize: 11 }}
-                axisLine={{ stroke: 'var(--border)' }}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fill: 'var(--muted)', fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                width={40}
-                allowDecimals={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: 'var(--card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  fontSize: 12,
-                  color: 'var(--text)',
-                }}
-                cursor={{ fill: 'var(--hover-bg)' }}
-              />
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={chartData} margin={{ top: 8, right: 20, left: 0, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,.12)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fill: 'var(--muted)', fontSize: 11 }}
+                axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
+              <YAxis tick={{ fill: 'var(--muted)', fontSize: 11 }}
+                axisLine={false} tickLine={false} width={40} allowDecimals={false} />
+              <Tooltip {...tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
               {visibleSources.map((src) => (
-                <Bar
+                <Line
                   key={src}
+                  type="monotone"
                   dataKey={src}
-                  fill={SOURCE_COLORS[allSources.indexOf(src) % SOURCE_COLORS.length]}
-                  radius={[3, 3, 0, 0]}
-                  maxBarSize={48}
+                  stroke={SOURCE_COLORS[allSources.indexOf(src) % SOURCE_COLORS.length]}
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4 }}
                 />
               ))}
-            </BarChart>
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Claims chart */}
+      <div className="plpg-chart-card plpg-chart-card--claims">
+        <div className="plpg-chart-header">
+          <span className="plpg-chart-title">Claimed Pages</span>
+          <span className="plpg-chart-total">{totalClaims.toLocaleString()} total</span>
+        </div>
+        {loadingClaims ? (
+          <div className="plpg-chart-state">Loading…</div>
+        ) : claimsData.length === 0 ? (
+          <div className="plpg-chart-state muted">No claims in selected range.</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={claimsData} margin={{ top: 8, right: 20, left: 0, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,.12)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fill: 'var(--muted)', fontSize: 11 }}
+                axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
+              <YAxis tick={{ fill: 'var(--muted)', fontSize: 11 }}
+                axisLine={false} tickLine={false} width={40} allowDecimals={false} />
+              <Tooltip {...tooltipStyle} />
+              <Line
+                type="monotone"
+                dataKey="claims"
+                stroke={CLAIMS_COLOR}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4 }}
+              />
+            </LineChart>
           </ResponsiveContainer>
         )}
       </div>

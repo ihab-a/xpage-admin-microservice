@@ -130,6 +130,13 @@ func migrate(ctx context.Context) error {
 		CREATE INDEX IF NOT EXISTS idx_plpg_requests_source    ON plpg_requests(source);
 		CREATE INDEX IF NOT EXISTS idx_plpg_requests_at        ON plpg_requests(requested_at DESC);
 		CREATE INDEX IF NOT EXISTS idx_plpg_requests_source_at ON plpg_requests(source, requested_at DESC);
+
+		CREATE TABLE IF NOT EXISTS plpg_claims (
+			id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			session_id  TEXT NOT NULL,
+			claimed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+		CREATE INDEX IF NOT EXISTS idx_plpg_claims_at ON plpg_claims(claimed_at DESC);
 	`)
 	return err
 }
