@@ -41,8 +41,39 @@ function toDatetimeLocal(date) {
   return d.toISOString().slice(0, 16);
 }
 
-function pivotBuckets(buckets, granularity) {
+function truncateUTC(date, granularity) {
+  const d = new Date(date);
+  if (granularity === 'hour')  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours()));
+  if (granularity === 'day')   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  if (granularity === 'month') return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+  return new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+}
+
+function advanceUTC(date, granularity) {
+  const d = new Date(date);
+  if (granularity === 'hour')  { d.setUTCHours(d.getUTCHours() + 1); return d; }
+  if (granularity === 'day')   { d.setUTCDate(d.getUTCDate() + 1); return d; }
+  if (granularity === 'month') { d.setUTCMonth(d.getUTCMonth() + 1); return d; }
+  d.setUTCFullYear(d.getUTCFullYear() + 1); return d;
+}
+
+function generateGrid(from, to, granularity) {
+  const tsList = [];
+  let cur = truncateUTC(from, granularity);
+  while (cur <= to) {
+    tsList.push(cur.getTime() / 1000);
+    cur = advanceUTC(cur, granularity);
+  }
+  return tsList;
+}
+
+function pivotBuckets(buckets, granularity, from, to, sources) {
   const map = new Map();
+  for (const ts of generateGrid(from, to, granularity)) {
+    const entry = { ts, label: formatBucketLabel(ts, granularity) };
+    for (const src of sources) entry[src] = 0;
+    map.set(ts, entry);
+  }
   for (const b of buckets) {
     if (!map.has(b.ts)) map.set(b.ts, { ts: b.ts, label: formatBucketLabel(b.ts, granularity) });
     map.get(b.ts)[b.source] = Number(b.count);
@@ -50,12 +81,16 @@ function pivotBuckets(buckets, granularity) {
   return Array.from(map.values()).sort((a, b) => a.ts - b.ts);
 }
 
-function pivotClaims(data, granularity) {
-  return data.map(b => ({
-    ts:     b.ts,
-    label:  formatBucketLabel(b.ts, granularity),
-    claims: Number(b.count),
-  })).sort((a, b) => a.ts - b.ts);
+function pivotClaims(data, granularity, from, to) {
+  const map = new Map();
+  for (const ts of generateGrid(from, to, granularity)) {
+    map.set(ts, { ts, label: formatBucketLabel(ts, granularity), claims: 0 });
+  }
+  for (const b of data) {
+    if (map.has(b.ts)) map.get(b.ts).claims = Number(b.count);
+    else map.set(b.ts, { ts: b.ts, label: formatBucketLabel(b.ts, granularity), claims: Number(b.count) });
+  }
+  return Array.from(map.values()).sort((a, b) => a.ts - b.ts);
 }
 
 function startOfToday() {
@@ -193,8 +228,8 @@ export default function PlpgPage() {
   ]));
 
   const visibleSources = sourceFilter ? [sourceFilter] : allSources;
-  const chartData      = pivotBuckets(buckets, granularity);
-  const claimsData     = pivotClaims(claims, granularity);
+  const chartData      = pivotBuckets(buckets, granularity, from, to, visibleSources);
+  const claimsData     = pivotClaims(claims, granularity, from, to);
   const totalReqs      = buckets.reduce((s, b) => s + Number(b.count), 0);
   const totalClaims    = claims.reduce((s, b) => s + Number(b.count), 0);
 
