@@ -7,6 +7,7 @@ import OrdersPage from './pages/OrdersPage';
 import OrderDetailPage from './pages/OrderDetailPage';
 import HostingsPage from './pages/HostingsPage';
 import PlpgPage from './pages/PlpgPage';
+import AiMetricsPage from './pages/AiMetricsPage';
 import './index.css';
 
 function ProtectedLayout() {
@@ -23,6 +24,7 @@ function ProtectedLayout() {
           <Route path="/orders/:id" element={<OrderDetailPage />} />
           <Route path="/hostings" element={<HostingsPage />} />
           <Route path="/plpg" element={<PlpgPage />} />
+          <Route path="/ai" element={<AiMetricsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

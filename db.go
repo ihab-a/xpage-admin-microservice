@@ -137,6 +137,23 @@ func migrate(ctx context.Context) error {
 			claimed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		);
 		CREATE INDEX IF NOT EXISTS idx_plpg_claims_at ON plpg_claims(claimed_at DESC);
+
+		CREATE TABLE IF NOT EXISTS ai_metric_events (
+			ts              TIMESTAMPTZ     NOT NULL,
+			provider        TEXT            NOT NULL,
+			model           TEXT            NOT NULL,
+			mode            TEXT            NOT NULL DEFAULT '',
+			input_tokens    INTEGER         NOT NULL DEFAULT 0,
+			output_tokens   INTEGER         NOT NULL DEFAULT 0,
+			thinking_tokens INTEGER         NOT NULL DEFAULT 0,
+			duration_ms     INTEGER         NOT NULL DEFAULT 0,
+			is_error        BOOLEAN         NOT NULL DEFAULT FALSE,
+			error_message   TEXT,
+			error_code      TEXT,
+			created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+		);
+		CREATE INDEX IF NOT EXISTS idx_ai_events_ts          ON ai_metric_events(ts DESC);
+		CREATE INDEX IF NOT EXISTS idx_ai_events_model_ts    ON ai_metric_events(provider, model, ts DESC);
 	`)
 	return err
 }
