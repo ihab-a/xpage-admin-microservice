@@ -4,7 +4,7 @@ import client from '../api/client';
 import { useTheme } from '../hooks/useTheme';
 import './AiMetricsPage.css';
 
-// ── Colors (same as old blade dashboard) ──────────────────────────────────────
+// ── Colors ────────────────────────────────────────────────────────────────────
 
 const COLORS = ['#60a5fa','#34d399','#f472b6','#fbbf24','#a78bfa',
                  '#f87171','#38bdf8','#4ade80','#fb923c','#e879f9'];
@@ -76,6 +76,19 @@ function toDatetimeLocal(d) {
   const x = new Date(d);
   x.setMinutes(x.getMinutes() - x.getTimezoneOffset());
   return x.toISOString().slice(0, 16);
+}
+function fmtDateShort(d) {
+  return d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+}
+
+// ── Delta helper ──────────────────────────────────────────────────────────────
+
+function calcDelta(current, prev, compareEnabled) {
+  if (!compareEnabled || !prev) return null;
+  const p = Number(prev);
+  if (p === 0) return null;
+  const pct = ((Number(current) - p) / p) * 100;
+  return { pct, up: pct >= 0 };
 }
 
 // ── Time helpers ──────────────────────────────────────────────────────────────
@@ -214,17 +227,47 @@ function lineSeriesItem(name, data, idx) {
   };
 }
 
-function makeLineOpt({ labels, series, cs, withZoom = false, yFormatter }) {
+// Previous-period series: dashed, low opacity, no area, hidden from legend
+function lineSeriesItemPrev(name, data, idx) {
+  const color = COLORS[idx % COLORS.length];
+  return {
+    type: 'line', name: name + ' ·prev', smooth: 0.3, symbolSize: 0, data,
+    lineStyle: { width: 1.5, color, type: 'dashed', opacity: 0.4 },
+    itemStyle: { color, opacity: 0.4 },
+    areaStyle: null,
+    legendHoverLink: false,
+    emphasis: { disabled: true },
+    large: true, largeThreshold: 2000,
+  };
+}
+
+// prevSeries: array of {name, data} aligned by name to `series`
+function makeLineOpt({ labels, series, prevSeries = [], cs, withZoom = false, yFormatter }) {
+  const prevByName = Object.fromEntries(prevSeries.map(s => [s.name, s]));
+  const allSeries = [
+    ...series.map((s, i) => lineSeriesItem(s.name, s.data, i)),
+    ...series
+      .map((s, i) => {
+        const p = prevByName[s.name];
+        return p ? lineSeriesItemPrev(s.name, p.data, i) : null;
+      })
+      .filter(Boolean),
+  ];
   return {
     backgroundColor: 'transparent', animation: false, color: COLORS,
     tooltip: { ...cs.tooltip, trigger: 'axis' },
-    legend: { ...cs.legend, bottom: 28 },
+    legend: {
+      ...cs.legend, bottom: 28,
+      // hide the '·prev' ghost entries from the legend
+      formatter: name => name.endsWith('·prev') ? '' : name,
+      data: series.map(s => s.name),
+    },
     toolbox: cs.toolbox,
     ...(withZoom ? { dataZoom: cs.dataZoom } : {}),
     grid: { left: 54, right: 20, top: 40, bottom: withZoom ? 50 : 46 },
     xAxis: { type: 'category', boundaryGap: false, axisLabel: cs.axisLabel, axisLine: cs.axisLine, splitLine: cs.splitLineX, data: labels },
     yAxis: { type: 'value', min: 0, axisLabel: yFormatter ? { ...cs.axisLabel, formatter: yFormatter } : cs.axisLabel, axisLine: cs.axisLine, splitLine: cs.splitLine },
-    series: series.map((s, i) => lineSeriesItem(s.name, s.data, i)),
+    series: allSeries,
   };
 }
 
@@ -273,11 +316,18 @@ function makeGroupedBarOpt({ categories, series, cs, yFormatter, tooltipFmt }) {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, accent, sub }) {
+function StatCard({ label, value, accent, sub, trend }) {
   return (
     <div className="ai-stat-card" style={accent ? { borderColor: accent + '55' } : {}}>
       <div className="ai-stat-label">{label}</div>
-      <div className="ai-stat-value" style={accent ? { color: accent } : {}}>{value}</div>
+      <div className="ai-stat-value-row">
+        <div className="ai-stat-value" style={accent ? { color: accent } : {}}>{value}</div>
+        {trend && (
+          <div className={`ai-stat-trend ${trend.up ? 'up' : 'down'}`}>
+            {trend.up ? '↑' : '↓'}{Math.abs(trend.pct).toFixed(1)}%
+          </div>
+        )}
+      </div>
       {sub && <div className="ai-stat-sub">{sub}</div>}
     </div>
   );
@@ -384,18 +434,15 @@ function ErrorsModal({ errors, filter, onFilter, onClose }) {
       <div className="ai-modal-panel ai-modal-errors">
         <button className="ai-modal-close" onClick={onClose}>✕</button>
         <h3 className="ai-modal-title">Error Log</h3>
-
         <div className="ai-errlog-filters">
           <button className={`ai-errlog-filter${!filter ? ' active' : ''}`} onClick={() => onFilter(null)}>All</button>
           {models.map(m => (
             <button key={m} className={`ai-errlog-filter${filter === m ? ' active' : ''}`} onClick={() => onFilter(m)}>{m}</button>
           ))}
         </div>
-
         <div className="ai-errlog-count">
           {filtered.length} entr{filtered.length === 1 ? 'y' : 'ies'}{filter ? ` for ${filter}` : ''}
         </div>
-
         <div className="ai-errlog-list">
           {filtered.length === 0
             ? <div className="ai-error-no-msg" style={{ padding: '16px 0' }}>No errors recorded.</div>
@@ -437,35 +484,41 @@ export default function AiMetricsPage() {
   const [provider, setProvider] = useState('');
   const [model,    setModel]    = useState('');
 
+  // Compare
+  const [compareEnabled,    setCompareEnabled]    = useState(false);
+  const [customCompareFrom, setCustomCompareFrom] = useState(null);
+  const [showCustomDate,    setShowCustomDate]    = useState(false);
+
   // Data
   const [stats,       setStats]       = useState(null);
+  const [prevStats,   setPrevStats]   = useState(null);
   const [errors,      setErrors]      = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [lastAt,      setLastAt]      = useState(null);
-  // Stable selector options — unaffected by active provider/model filter
   const [dropModels,  setDropModels]  = useState([]);
   const [dropProvs,   setDropProvs]   = useState([]);
 
   // UI
-  const [pricesOpen,    setPricesOpen]    = useState(false);
-  const [priceTick,     setPriceTick]     = useState(0);
-  const [errModalOpen,  setErrModalOpen]  = useState(false);
+  const [pricesOpen,     setPricesOpen]     = useState(false);
+  const [priceTick,      setPriceTick]      = useState(0);
+  const [errModalOpen,   setErrModalOpen]   = useState(false);
   const [errModelFilter, setErrModelFilter] = useState(null);
 
-  function openErrorsFor(model = null) {
-    setErrModelFilter(model);
-    setErrModalOpen(true);
-  }
+  function openErrorsFor(m = null) { setErrModelFilter(m); setErrModalOpen(true); }
 
-  // Refs for auto-refresh closure
-  const presetRef   = useRef(preset);
-  const liveModeRef = useRef(liveMode);
-  const cFromRef    = useRef(cFrom);
-  const cToRef      = useRef(cTo);
-  presetRef.current   = preset;
-  liveModeRef.current = liveMode;
-  cFromRef.current    = cFrom;
-  cToRef.current      = cTo;
+  // Refs for interval closure
+  const presetRef          = useRef(preset);
+  const liveModeRef        = useRef(liveMode);
+  const cFromRef           = useRef(cFrom);
+  const cToRef             = useRef(cTo);
+  const compareEnabledRef  = useRef(compareEnabled);
+  const customCmpFromRef   = useRef(customCompareFrom);
+  presetRef.current         = preset;
+  liveModeRef.current       = liveMode;
+  cFromRef.current          = cFrom;
+  cToRef.current            = cTo;
+  compareEnabledRef.current = compareEnabled;
+  customCmpFromRef.current  = customCompareFrom;
 
   const fetchAll = useCallback(async (from, to) => {
     const timeParams = { from: from.toISOString(), to: to.toISOString(), granularity: gran };
@@ -474,7 +527,6 @@ export default function AiMetricsPage() {
     if (model)    dataParams.model    = model;
     const hasFilter = !!(provider || model);
 
-    // When a filter is active, fetch an unfiltered index (granularity:day) to keep dropdowns stable
     const calls = [
       client.get('/ai/stats',  { params: dataParams }),
       client.get('/ai/errors', { params: { ...dataParams, limit: 200 } }),
@@ -485,13 +537,22 @@ export default function AiMetricsPage() {
     if (sr.status === 'fulfilled') setStats(sr.value.data);
     if (er.status === 'fulfilled') setErrors(er.value.data?.data ?? []);
 
-    // Populate dropdowns from the unfiltered result (or main result when no filter)
     const idx = hasFilter ? ir : sr;
     if (idx?.status === 'fulfilled') {
       setDropModels((idx.value.data.models    ?? []).slice().sort());
       setDropProvs( (idx.value.data.providers ?? []).slice().sort());
     }
     setLastAt(new Date());
+  }, [gran, provider, model]);
+
+  const fetchPrevStats = useCallback(async (from, to) => {
+    const params = { from: from.toISOString(), to: to.toISOString(), granularity: gran };
+    if (provider) params.provider = provider;
+    if (model)    params.model    = model;
+    try {
+      const { data } = await client.get('/ai/stats', { params });
+      setPrevStats(data);
+    } catch {}
   }, [gran, provider, model]);
 
   useEffect(() => {
@@ -502,13 +563,26 @@ export default function AiMetricsPage() {
       const from = live ? new Date(now.getTime() - presetRef.current.ms) : cFromRef.current;
       const to   = live ? now : cToRef.current;
       if (first) { setLoading(true); first = false; }
-      await fetchAll(from, to).catch(() => {});
+
+      const dur = to.getTime() - from.getTime();
+      const cmpEnabled = compareEnabledRef.current;
+
+      await Promise.allSettled([
+        fetchAll(from, to),
+        ...(cmpEnabled ? (() => {
+          const pf = customCmpFromRef.current ?? new Date(from.getTime() - dur);
+          const pt = new Date(pf.getTime() + dur);
+          return [fetchPrevStats(pf, pt)];
+        })() : []),
+      ]);
+
+      if (!cmpEnabled) setPrevStats(null);
       if (alive) setLoading(false);
     };
     run();
     const id = setInterval(run, 5000);
     return () => { alive = false; clearInterval(id); };
-  }, [gran, provider, model, liveMode, preset, cFrom, cTo, fetchAll]);
+  }, [gran, provider, model, liveMode, preset, cFrom, cTo, compareEnabled, customCompareFrom, fetchAll, fetchPrevStats]);
 
   function applyPreset(p) {
     setPreset(p); setLiveMode(true);
@@ -520,20 +594,29 @@ export default function AiMetricsPage() {
   }
 
   // Derived range
-  const now      = new Date();
+  const now       = new Date();
   const rangeFrom = liveMode ? new Date(now.getTime() - preset.ms) : cFrom;
   const rangeTo   = liveMode ? now : cTo;
+  const duration  = rangeTo.getTime() - rangeFrom.getTime();
 
-  // Derived data
-  const rawData    = stats?.data          ?? [];
-  const modeBkdn   = stats?.mode_breakdown ?? [];
-  const allModels  = (stats?.models    ?? []).slice().sort();
-  const allProvs   = (stats?.providers ?? []).slice().sort();
-  const summary    = stats?.summary ?? {};
+  const prevFrom = compareEnabled
+    ? (customCompareFrom ?? new Date(rangeFrom.getTime() - duration))
+    : null;
+  const prevTo = prevFrom ? new Date(prevFrom.getTime() + duration) : null;
 
-  const grid     = makeGrid(rangeFrom, rangeTo, gran);
-  const mTotals  = modelTotals(rawData);
-  const modRows  = modeTotals(modeBkdn);
+  const comparePeriodLabel = prevFrom
+    ? `vs ${fmtDateShort(prevFrom)} – ${fmtDateShort(prevTo)}`
+    : '';
+
+  // Derived current data
+  const rawData   = stats?.data          ?? [];
+  const modeBkdn  = stats?.mode_breakdown ?? [];
+  const allModels = (stats?.models    ?? []).slice().sort();
+  const summary   = stats?.summary ?? {};
+
+  const grid    = makeGrid(rangeFrom, rangeTo, gran);
+  const mTotals = modelTotals(rawData);
+  const modRows = modeTotals(modeBkdn);
 
   const totReq  = Number(summary.total_requests        ?? 0);
   const totErr  = Number(summary.total_errors          ?? 0);
@@ -550,25 +633,61 @@ export default function AiMetricsPage() {
     if (c !== null) { totalCost += c; costKnown = true; }
   }
 
+  // Derived previous data
+  const prevSummary = prevStats?.summary ?? {};
+  const prevRawData = prevStats?.data    ?? [];
+  const prevGrid    = useMemo(
+    () => (compareEnabled && prevFrom && prevTo) ? makeGrid(prevFrom, prevTo, gran) : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [compareEnabled, prevFrom?.getTime(), prevTo?.getTime(), gran]
+  );
+
+  // Deltas for StatCards
+  const reqTrend    = calcDelta(totReq, prevSummary.total_requests,        compareEnabled && !!prevStats);
+  const inTrend     = calcDelta(totIn,  prevSummary.total_input_tokens,    compareEnabled && !!prevStats);
+  const outTrend    = calcDelta(totOut, prevSummary.total_output_tokens,   compareEnabled && !!prevStats);
+  const thkTrend    = calcDelta(totThk, prevSummary.total_thinking_tokens, compareEnabled && !!prevStats);
+  const errTrend    = calcDelta(totErr, prevSummary.total_errors,          compareEnabled && !!prevStats);
+
+  let prevTotalCost = 0, prevCostKnown = false;
+  const prevMTotals = useMemo(() => modelTotals(prevRawData), [prevRawData]);
+  for (const m of prevMTotals) {
+    const c = calcCost(m.model, m.input, m.output, m.thinking);
+    if (c !== null) { prevTotalCost += c; prevCostKnown = true; }
+  }
+  const costTrend = calcDelta(totalCost, prevCostKnown ? prevTotalCost : null, compareEnabled && !!prevStats && costKnown && prevCostKnown);
+
+  const prevAvgRtDurS = Number(prevSummary.total_duration_ms_sum ?? 0);
+  const prevAvgRtDurC = Number(prevSummary.total_duration_count  ?? 0);
+  const prevAvgRt     = prevAvgRtDurC > 0 ? Math.round(prevAvgRtDurS / prevAvgRtDurC) : null;
+  const rtTrend       = calcDelta(avgRt, prevAvgRt, compareEnabled && !!prevStats && avgRt !== null && prevAvgRt !== null);
+
   const hasThk  = totThk > 0;
   const isEmpty = rawData.length === 0;
   const prices  = effectivePrices();
   const spin    = loading && !stats;
 
-  // ── Chart options (memoized) ────────────────────────────────────────────────
+  // ── Current period pivots ─────────────────────────────────────────────────
 
-  const reqPivot = useMemo(
-    () => pivotByModel(rawData, grid, allModels, gran, 'requests'),
-    [rawData, grid, allModels, gran]
-  );
-  const errPivot = useMemo(
-    () => pivotByModel(rawData, grid, allModels, gran, 'errors'),
-    [rawData, grid, allModels, gran]
-  );
-  const tokPivot = useMemo(() => pivotTokens(rawData, grid, gran), [rawData, grid, gran]);
-  const costPivot = useMemo(() => pivotCostByModel(rawData, grid, allModels, gran), [rawData, grid, allModels, gran, priceTick]);
+  const reqPivot  = useMemo(() => pivotByModel(rawData, grid, allModels, gran, 'requests'), [rawData, grid, allModels, gran]);
+  const errPivot  = useMemo(() => pivotByModel(rawData, grid, allModels, gran, 'errors'),   [rawData, grid, allModels, gran]);
+  const tokPivot  = useMemo(() => pivotTokens(rawData, grid, gran),                         [rawData, grid, gran]);
+  const costPivot = useMemo(() => pivotCostByModel(rawData, grid, allModels, gran),         [rawData, grid, allModels, gran, priceTick]);
 
-  const reqOpt = useMemo(() => makeLineOpt({ labels: reqPivot.labels, series: reqPivot.series, cs, withZoom: true }), [reqPivot, cs]);
+  // ── Previous period pivots ────────────────────────────────────────────────
+
+  const prevReqPivot  = useMemo(() => compareEnabled && prevGrid.length ? pivotByModel(prevRawData, prevGrid, allModels, gran, 'requests') : null, [compareEnabled, prevRawData, prevGrid, allModels, gran]);
+  const prevErrPivot  = useMemo(() => compareEnabled && prevGrid.length ? pivotByModel(prevRawData, prevGrid, allModels, gran, 'errors')   : null, [compareEnabled, prevRawData, prevGrid, allModels, gran]);
+  const prevTokPivot  = useMemo(() => compareEnabled && prevGrid.length ? pivotTokens(prevRawData, prevGrid, gran)                         : null, [compareEnabled, prevRawData, prevGrid, gran]);
+  const prevCostPivot = useMemo(() => compareEnabled && prevGrid.length ? pivotCostByModel(prevRawData, prevGrid, allModels, gran)          : null, [compareEnabled, prevRawData, prevGrid, allModels, gran, priceTick]);
+
+  // ── Chart options ─────────────────────────────────────────────────────────
+
+  const reqOpt = useMemo(() => makeLineOpt({
+    labels: reqPivot.labels, series: reqPivot.series,
+    prevSeries: prevReqPivot?.series ?? [],
+    cs, withZoom: true,
+  }), [reqPivot, prevReqPivot, cs]);
 
   const tokOpt = useMemo(() => makeLineOpt({
     labels: tokPivot.labels,
@@ -577,19 +696,30 @@ export default function AiMetricsPage() {
       { name: 'Output',   data: tokPivot.output   },
       ...(hasThk ? [{ name: 'Thinking', data: tokPivot.thinking }] : []),
     ],
+    prevSeries: prevTokPivot ? [
+      { name: 'Input',    data: prevTokPivot.input    },
+      { name: 'Output',   data: prevTokPivot.output   },
+      ...(hasThk ? [{ name: 'Thinking', data: prevTokPivot.thinking }] : []),
+    ] : [],
     cs, withZoom: true,
     yFormatter: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : String(v),
-  }), [tokPivot, hasThk, cs]);
+  }), [tokPivot, prevTokPivot, hasThk, cs]);
 
-  const errOpt = useMemo(() => makeLineOpt({ labels: errPivot.labels, series: errPivot.series, cs, withZoom: true }), [errPivot, cs]);
+  const errOpt = useMemo(() => makeLineOpt({
+    labels: errPivot.labels, series: errPivot.series,
+    prevSeries: prevErrPivot?.series ?? [],
+    cs, withZoom: true,
+  }), [errPivot, prevErrPivot, cs]);
 
   const costTimeOpt = useMemo(() => {
     if (!costPivot.series.length) return null;
     return makeLineOpt({
-      labels: costPivot.labels, series: costPivot.series, cs, withZoom: true,
+      labels: costPivot.labels, series: costPivot.series,
+      prevSeries: prevCostPivot?.series ?? [],
+      cs, withZoom: true,
       yFormatter: v => v === 0 ? '$0' : v < 0.01 ? '$'+v.toFixed(4) : '$'+v.toFixed(3),
     });
-  }, [costPivot, cs]);
+  }, [costPivot, prevCostPivot, cs]);
 
   const pieTokenModel = useMemo(() =>
     mTotals.map(m => ({ name: m.model, value: m.input + m.output + m.thinking })).filter(d => d.value > 0),
@@ -612,16 +742,14 @@ export default function AiMetricsPage() {
     mTotals.filter(m => m.output + m.thinking > 0).map(m => {
       const tot = m.output + m.thinking;
       return { model: m.model, out: +(m.output/tot*100).toFixed(1), thk: +(m.thinking/tot*100).toFixed(1) };
-    }),
-    [mTotals]
+    }), [mTotals]
   );
   const stackSuccErr = useMemo(() =>
     mTotals.filter(m => m.requests > 0).map(m => ({
       model: m.model,
       ok:  +((m.requests - m.errors)/m.requests*100).toFixed(1),
       err: +(m.errors/m.requests*100).toFixed(1),
-    })),
-    [mTotals]
+    })), [mTotals]
   );
 
   const outThkOpt = useMemo(() => makeStackedBarOpt({
@@ -664,7 +792,6 @@ export default function AiMetricsPage() {
     });
   }, [rtModeList, allModels, modeBkdn, cs]);
 
-  // Avg tokens per request
   const avgTokOpt = useMemo(() => {
     const rows = mTotals.filter(m => m.requests > 0);
     if (!rows.length) return null;
@@ -758,7 +885,45 @@ export default function AiMetricsPage() {
             {dropModels.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
+
+        {/* Compare toggle */}
+        <div className="ai-compare-group">
+          <button
+            className={`ai-compare-btn${compareEnabled ? ' active' : ''}`}
+            onClick={() => { setCompareEnabled(v => !v); setShowCustomDate(false); setCustomCompareFrom(null); }}
+          >
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" strokeWidth="1.5" stroke="currentColor">
+              <path d="M1 7h5M8 7h5M4 4l-3 3 3 3M10 4l3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Compare
+          </button>
+
+          {compareEnabled && (
+            <div className="ai-compare-period">
+              <span className="ai-compare-label">{comparePeriodLabel}</span>
+              <button className="ai-compare-custom-btn" onClick={() => setShowCustomDate(v => !v)}>
+                {customCompareFrom ? 'Custom ✓' : 'Custom'}
+              </button>
+              {customCompareFrom && (
+                <button className="ai-compare-reset" onClick={() => { setCustomCompareFrom(null); setShowCustomDate(false); }}>✕</button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Custom compare date */}
+      {compareEnabled && showCustomDate && (
+        <div className="ai-custom-compare">
+          <label className="ai-date-label">Compare period start</label>
+          <input type="datetime-local" className="ai-date-input"
+            value={toDatetimeLocal(customCompareFrom ?? prevFrom)}
+            onChange={e => { const d = new Date(e.target.value); if (!isNaN(d)) setCustomCompareFrom(d); }} />
+          <span className="ai-date-label" style={{ alignSelf: 'center' }}>
+            → {fmtDateShort(prevTo)} (same length)
+          </span>
+        </div>
+      )}
 
       {/* ── Active models in period ── */}
       {allModels.length > 0 && (
@@ -774,25 +939,25 @@ export default function AiMetricsPage() {
 
       {/* ── Summary cards ── */}
       <div className="ai-stat-grid">
-        <StatCard label="Requests"          value={fmtNum(totReq)} />
-        <StatCard label="Input Tokens"      value={fmtNum(totIn)} />
-        <StatCard label="Output Tokens"     value={fmtNum(totOut)} />
-        {hasThk && <StatCard label="Thinking Tokens" value={fmtNum(totThk)} />}
+        <StatCard label="Requests"          value={fmtNum(totReq)}  trend={reqTrend} />
+        <StatCard label="Input Tokens"      value={fmtNum(totIn)}   trend={inTrend} />
+        <StatCard label="Output Tokens"     value={fmtNum(totOut)}  trend={outTrend} />
+        {hasThk && <StatCard label="Thinking Tokens" value={fmtNum(totThk)} trend={thkTrend} />}
         <StatCard label="Total Tokens"      value={fmtNum(totIn + totOut + totThk)} />
-        <StatCard label="Errors" accent="#ef4444" value={fmtNum(totErr)}
+        <StatCard label="Errors" accent="#ef4444" value={fmtNum(totErr)} trend={errTrend}
           sub={totReq > 0 ? `${(totErr/totReq*100).toFixed(1)}% rate` : undefined} />
         <StatCard label="Active Models"     value={String(allModels.length)} />
-        <StatCard label="Avg Response Time" value={fmtMs(avgRt)} />
-        {costKnown && <StatCard label="Est. Total Cost" accent="#10b981" value={fmtCost(totalCost)} />}
+        <StatCard label="Avg Response Time" value={fmtMs(avgRt)}    trend={rtTrend} />
+        {costKnown && <StatCard label="Est. Total Cost" accent="#10b981" value={fmtCost(totalCost)} trend={costTrend} />}
       </div>
 
       {/* ── Requests over time ── */}
-      <Card title="Requests over time" loading={spin} empty={isEmpty}>
+      <Card title={`Requests over time${compareEnabled ? ' — ' + comparePeriodLabel : ''}`} loading={spin} empty={isEmpty}>
         <EChart option={reqOpt} style={{ height: 300 }} onChartReady={activateDragZoom} />
       </Card>
 
       {/* ── Token usage over time ── */}
-      <Card title="Token usage over time" loading={spin} empty={isEmpty}>
+      <Card title={`Token usage over time${compareEnabled ? ' — ' + comparePeriodLabel : ''}`} loading={spin} empty={isEmpty}>
         <EChart option={tokOpt} style={{ height: 280 }} onChartReady={activateDragZoom} />
       </Card>
 
@@ -819,7 +984,7 @@ export default function AiMetricsPage() {
         </Card>
       </div>
 
-      {/* ── Avg RT by model & mode ── */}
+      {/* ── Avg RT ── */}
       {rtOpt && (
         <Card title="Avg response time by model & mode" loading={spin} empty={rtModeList.length === 0}>
           <EChart option={rtOpt} style={{ height: 260 }} />
@@ -835,14 +1000,14 @@ export default function AiMetricsPage() {
 
       {/* ── Cost over time ── */}
       {costTimeOpt && (
-        <Card title="Estimated cost over time" loading={spin} empty={isEmpty}>
+        <Card title={`Estimated cost over time${compareEnabled ? ' — ' + comparePeriodLabel : ''}`} loading={spin} empty={isEmpty}>
           <EChart option={costTimeOpt} style={{ height: 280 }} onChartReady={activateDragZoom} />
         </Card>
       )}
 
-      {/* ── Errors over time + recent errors ── */}
+      {/* ── Errors over time ── */}
       <div className="ai-charts-row">
-        <Card title="Errors over time" loading={spin} empty={isEmpty}>
+        <Card title={`Errors over time${compareEnabled ? ' — ' + comparePeriodLabel : ''}`} loading={spin} empty={isEmpty}>
           <EChart option={errOpt} style={{ height: 240 }} onChartReady={activateDragZoom} />
         </Card>
 
@@ -960,17 +1125,9 @@ export default function AiMetricsPage() {
         </Card>
       )}
 
-      {/* ── Prices modal ── */}
       {pricesOpen && <PricesModal onClose={() => { setPricesOpen(false); setPriceTick(t => t + 1); }} />}
-
-      {/* ── Errors modal ── */}
       {errModalOpen && (
-        <ErrorsModal
-          errors={errors}
-          filter={errModelFilter}
-          onFilter={setErrModelFilter}
-          onClose={() => setErrModalOpen(false)}
-        />
+        <ErrorsModal errors={errors} filter={errModelFilter} onFilter={setErrModelFilter} onClose={() => setErrModalOpen(false)} />
       )}
     </div>
   );

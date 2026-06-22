@@ -200,6 +200,177 @@
   letter-spacing: .03em;
 }
 
+/* Compare toggle & period selector */
+.plpg-compare-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.plpg-compare-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+  white-space: nowrap;
+}
+
+.plpg-compare-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.plpg-compare-btn.active {
+  background: var(--accent-dim, rgba(103,114,229,.12));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.plpg-compare-period {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.plpg-compare-label {
+  font-size: .78rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.plpg-compare-custom-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: .75rem;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+
+.plpg-compare-custom-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.plpg-compare-reset {
+  padding: 2px 6px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: .8rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.plpg-compare-reset:hover { color: var(--danger); }
+
+/* Custom compare date input row */
+.plpg-custom-compare {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px 16px;
+  background: var(--hover-bg, rgba(128,128,128,.06));
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+/* Compare label in chart header */
+.plpg-chart-compare-label {
+  font-size: .73rem;
+  color: var(--muted);
+  font-style: italic;
+  opacity: .8;
+}
+
+/* Custom tooltip */
+.plpg-tooltip {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: .8rem;
+  min-width: 160px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.2);
+}
+
+.plpg-tooltip-label {
+  color: var(--muted);
+  font-size: .73rem;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.plpg-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  flex-wrap: wrap;
+}
+
+.plpg-tooltip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.plpg-tooltip-src {
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plpg-tooltip-val {
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.plpg-tooltip-prev {
+  color: var(--muted);
+  font-size: .73rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.plpg-tooltip-delta {
+  font-weight: 600;
+}
+
+.plpg-tooltip-delta.up   { color: #10b981; }
+.plpg-tooltip-delta.down { color: #ef4444; }
+
+/* Delta in subtitle */
+.plpg-sub-delta {
+  font-size: .75rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  margin: 0 3px;
+}
+
+.plpg-sub-delta.up   { color: #10b981; background: rgba(16,185,129,.1); }
+.plpg-sub-delta.down { color: #ef4444; background: rgba(239,68,68,.1);  }
+
 /* Metric toggle (Total / Unique) */
 .plpg-metric-toggle {
   display: flex;

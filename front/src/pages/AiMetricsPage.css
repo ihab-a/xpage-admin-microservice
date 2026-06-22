@@ -184,6 +184,93 @@
   outline: none;
 }
 
+/* ── Compare toggle ─────────────────────────────────────────────────────────── */
+
+.ai-compare-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ai-compare-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+  white-space: nowrap;
+}
+
+.ai-compare-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.ai-compare-btn.active {
+  background: var(--accent-dim, rgba(103,114,229,.12));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.ai-compare-period {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-compare-label {
+  font-size: .78rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.ai-compare-custom-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: .75rem;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+
+.ai-compare-custom-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.ai-compare-reset {
+  padding: 2px 6px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: .8rem;
+  cursor: pointer;
+}
+
+.ai-compare-reset:hover { color: var(--danger); }
+
+.ai-custom-compare {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px 16px;
+  background: var(--hover-bg, rgba(128,128,128,.06));
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
 /* ── Active models strip ─────────────────────────────────────────────────────── */
 
 .ai-active-models {
@@ -240,11 +327,28 @@
   margin-bottom: 6px;
 }
 
+.ai-stat-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
 .ai-stat-value {
   font-size: 1.4rem;
   font-weight: 700;
   color: var(--text);
 }
+
+.ai-stat-trend {
+  font-size: .72rem;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.ai-stat-trend.up   { color: #10b981; background: rgba(16,185,129,.12); }
+.ai-stat-trend.down { color: #ef4444; background: rgba(239,68,68,.12);  }
 
 .ai-stat-sub {
   font-size: .72rem;
