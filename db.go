@@ -138,6 +138,11 @@ func migrate(ctx context.Context) error {
 		);
 		CREATE INDEX IF NOT EXISTS idx_plpg_claims_at ON plpg_claims(claimed_at DESC);
 
+		ALTER TABLE plpg_claims ADD COLUMN IF NOT EXISTS source  TEXT NOT NULL DEFAULT '';
+		ALTER TABLE plpg_claims ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT '';
+		CREATE INDEX IF NOT EXISTS idx_plpg_claims_source ON plpg_claims(source);
+		CREATE INDEX IF NOT EXISTS idx_plpg_claims_user   ON plpg_claims(source, user_id);
+
 		CREATE TABLE IF NOT EXISTS ai_metric_events (
 			ts              TIMESTAMPTZ     NOT NULL,
 			provider        TEXT            NOT NULL,

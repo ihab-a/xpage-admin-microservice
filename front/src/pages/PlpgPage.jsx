@@ -13,7 +13,8 @@ const GRANULARITIES = [
 ];
 
 const SOURCE_COLORS = ['#6772e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-const CLAIMS_COLOR  = '#06b6d4';
+const fmt = n => Number(n).toLocaleString();
+const pct = (a, b) => b > 0 ? ((a / b) * 100).toFixed(1) + '%' : '—';
 
 function granularityEnabled(g, from, to) {
   const diffDays = (to - from) / 86400000;
@@ -67,41 +68,70 @@ function generateGrid(from, to, granularity) {
   return tsList;
 }
 
+// pivot usage buckets — keys: src (count) and src+'_u' (unique_users)
 function pivotBuckets(buckets, granularity, from, to, sources) {
   const map = new Map();
   for (const ts of generateGrid(from, to, granularity)) {
     const entry = { ts, label: formatBucketLabel(ts, granularity) };
-    for (const src of sources) entry[src] = 0;
+    for (const src of sources) { entry[src] = 0; entry[src + '_u'] = 0; }
     map.set(ts, entry);
   }
   for (const b of buckets) {
-    if (!map.has(b.ts)) map.set(b.ts, { ts: b.ts, label: formatBucketLabel(b.ts, granularity) });
+    if (!map.has(b.ts)) {
+      const entry = { ts: b.ts, label: formatBucketLabel(b.ts, granularity) };
+      for (const src of sources) { entry[src] = 0; entry[src + '_u'] = 0; }
+      map.set(b.ts, entry);
+    }
     map.get(b.ts)[b.source] = Number(b.count);
+    map.get(b.ts)[b.source + '_u'] = Number(b.unique_users ?? 0);
   }
   return Array.from(map.values()).sort((a, b) => a.ts - b.ts);
 }
 
-function pivotClaims(data, granularity, from, to) {
+// pivot claims — keys: src (count) and src+'_u' (unique_claimers)
+function pivotClaims(data, granularity, from, to, sources) {
   const map = new Map();
   for (const ts of generateGrid(from, to, granularity)) {
-    map.set(ts, { ts, label: formatBucketLabel(ts, granularity), claims: 0 });
+    const entry = { ts, label: formatBucketLabel(ts, granularity) };
+    for (const src of sources) { entry[src] = 0; entry[src + '_u'] = 0; }
+    map.set(ts, entry);
   }
   for (const b of data) {
-    if (map.has(b.ts)) map.get(b.ts).claims = Number(b.count);
-    else map.set(b.ts, { ts: b.ts, label: formatBucketLabel(b.ts, granularity), claims: Number(b.count) });
+    const src = b.source || 'unattributed';
+    if (!map.has(b.ts)) {
+      const entry = { ts: b.ts, label: formatBucketLabel(b.ts, granularity) };
+      for (const src2 of sources) { entry[src2] = 0; entry[src2 + '_u'] = 0; }
+      map.set(b.ts, entry);
+    }
+    map.get(b.ts)[src] = Number(b.count);
+    map.get(b.ts)[src + '_u'] = Number(b.unique_claimers ?? 0);
   }
   return Array.from(map.values()).sort((a, b) => a.ts - b.ts);
+}
+
+// per-source ROI aggregates from raw bucket arrays
+function computeRoi(usageBuckets, claimBuckets) {
+  const roi = {};
+  for (const b of usageBuckets) {
+    const src = b.source || 'unattributed';
+    if (!roi[src]) roi[src] = { source: src, gens: 0, uniqueGens: 0, claims: 0, uniqueClaimers: 0 };
+    roi[src].gens       += Number(b.count);
+    roi[src].uniqueGens += Number(b.unique_users ?? 0);
+  }
+  for (const b of claimBuckets) {
+    const src = b.source || 'unattributed';
+    if (!roi[src]) roi[src] = { source: src, gens: 0, uniqueGens: 0, claims: 0, uniqueClaimers: 0 };
+    roi[src].claims         += Number(b.count);
+    roi[src].uniqueClaimers += Number(b.unique_claimers ?? 0);
+  }
+  return Object.values(roi).sort((a, b) => b.gens - a.gens);
 }
 
 function startOfToday() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const d = new Date(); d.setHours(0, 0, 0, 0); return d;
 }
 function endOfToday() {
-  const d = new Date();
-  d.setHours(23, 59, 59, 999);
-  return d;
+  const d = new Date(); d.setHours(23, 59, 59, 999); return d;
 }
 
 function PlpgIcon() {
@@ -133,20 +163,31 @@ const tooltipStyle = {
   cursor: { stroke: 'var(--border)', strokeWidth: 1 },
 };
 
-export default function PlpgPage() {
-  const [from, setFrom]           = useState(startOfToday);
-  const [to,   setTo]             = useState(endOfToday);
-  const [granularity, setGran]    = useState('hour');
-  const [sourceFilter, setSrcFilter] = useState('');
+function MetricToggle({ value, onChange }) {
+  return (
+    <div className="plpg-metric-toggle">
+      <button className={value === 'total'  ? 'active' : ''} onClick={() => onChange('total')}>Total</button>
+      <button className={value === 'unique' ? 'active' : ''} onClick={() => onChange('unique')}>Unique</button>
+    </div>
+  );
+}
 
-  const [sources, setSources]     = useState([]);
-  const [buckets, setBuckets]     = useState([]);
-  const [claims,  setClaims]      = useState([]);
+export default function PlpgPage() {
+  const [from, setFrom]              = useState(startOfToday);
+  const [to,   setTo]                = useState(endOfToday);
+  const [granularity, setGran]       = useState('hour');
+  const [sourceFilter, setSrcFilter] = useState('');
+  const [usageMetric,  setUsageMetric]  = useState('total');
+  const [claimsMetric, setClaimsMetric] = useState('total');
+
+  const [sources, setSources] = useState([]);
+  const [buckets, setBuckets] = useState([]);
+  const [claims,  setClaims]  = useState([]);
 
   const [loadingSources, setLoadingSources] = useState(true);
   const [loadingUsage,   setLoadingUsage]   = useState(true);
   const [loadingClaims,  setLoadingClaims]  = useState(true);
-  const [error, setError]         = useState('');
+  const [error, setError] = useState('');
 
   const fetchSources = useCallback(async () => {
     setLoadingSources(true);
@@ -163,12 +204,7 @@ export default function PlpgPage() {
     setError('');
     try {
       const { data } = await client.get('/plpg/usage', {
-        params: {
-          from:        f.toISOString(),
-          to:          t.toISOString(),
-          granularity: gran,
-          ...(src ? { source: src } : {}),
-        },
+        params: { from: f.toISOString(), to: t.toISOString(), granularity: gran, ...(src ? { source: src } : {}) },
       });
       setBuckets(data.data ?? []);
     } catch {
@@ -178,15 +214,11 @@ export default function PlpgPage() {
     }
   }, []);
 
-  const fetchClaims = useCallback(async (f, t, gran) => {
+  const fetchClaims = useCallback(async (f, t, gran, src) => {
     setLoadingClaims(true);
     try {
       const { data } = await client.get('/plpg/claims', {
-        params: {
-          from:        f.toISOString(),
-          to:          t.toISOString(),
-          granularity: gran,
-        },
+        params: { from: f.toISOString(), to: t.toISOString(), granularity: gran, ...(src ? { source: src } : {}) },
       });
       setClaims(data.data ?? []);
     } catch { /* silent */ } finally {
@@ -198,7 +230,7 @@ export default function PlpgPage() {
 
   useEffect(() => {
     fetchUsage(from, to, granularity, sourceFilter);
-    fetchClaims(from, to, granularity);
+    fetchClaims(from, to, granularity, sourceFilter);
   }, [from, to, granularity, sourceFilter, fetchUsage, fetchClaims]);
 
   function applyRange(newFrom, newTo) {
@@ -222,16 +254,35 @@ export default function PlpgPage() {
     if (granularityEnabled(g, from, to)) setGran(g);
   }
 
-  const allSources = Array.from(new Set([
-    ...sources.map(s => s.name),
-    ...buckets.map(b => b.source),
-  ]));
+  const allSources    = Array.from(new Set([...sources.map(s => s.name), ...buckets.map(b => b.source)])).filter(Boolean);
+  const claimSources  = Array.from(new Set(claims.map(b => b.source).filter(Boolean)));
+  const visibleUsage  = sourceFilter ? [sourceFilter] : allSources;
+  const visibleClaims = sourceFilter ? [sourceFilter] : claimSources;
 
-  const visibleSources = sourceFilter ? [sourceFilter] : allSources;
-  const chartData      = pivotBuckets(buckets, granularity, from, to, visibleSources);
-  const claimsData     = pivotClaims(claims, granularity, from, to);
-  const totalReqs      = buckets.reduce((s, b) => s + Number(b.count), 0);
-  const totalClaims    = claims.reduce((s, b) => s + Number(b.count), 0);
+  const usageData  = pivotBuckets(buckets, granularity, from, to, visibleUsage);
+  const claimsData = pivotClaims(claims,   granularity, from, to, visibleClaims);
+  const roiRows    = computeRoi(buckets, claims);
+
+  const totalReqs    = buckets.reduce((s, b) => s + Number(b.count), 0);
+  const totalClaims  = claims.reduce((s, b)  => s + Number(b.count), 0);
+  const totalUniqueG = buckets.reduce((s, b) => s + Number(b.unique_users ?? 0), 0);
+  const totalUniqueC = claims.reduce((s, b)  => s + Number(b.unique_claimers ?? 0), 0);
+
+  // per-source claim totals for source cards
+  const claimsBySource = {};
+  for (const b of claims) {
+    const src = b.source || 'unattributed';
+    claimsBySource[src] = (claimsBySource[src] ?? 0) + Number(b.count);
+  }
+  const uniqueClaimersBySource = {};
+  for (const b of claims) {
+    const src = b.source || 'unattributed';
+    uniqueClaimersBySource[src] = (uniqueClaimersBySource[src] ?? 0) + Number(b.unique_claimers ?? 0);
+  }
+  const uniqueGensBySource = {};
+  for (const b of buckets) {
+    uniqueGensBySource[b.source] = (uniqueGensBySource[b.source] ?? 0) + Number(b.unique_users ?? 0);
+  }
 
   return (
     <div className="plpg-page">
@@ -243,7 +294,7 @@ export default function PlpgPage() {
             <p className="page-sub">
               {loadingUsage
                 ? 'Loading…'
-                : `${totalReqs.toLocaleString()} authentications · ${totalClaims.toLocaleString()} claims in range`}
+                : `${fmt(totalReqs)} authentications · ${fmt(totalUniqueG)} unique users · ${fmt(totalClaims)} claims · ${fmt(totalUniqueC)} unique claimers`}
             </p>
           </div>
         </div>
@@ -253,14 +304,15 @@ export default function PlpgPage() {
       {!loadingSources && sources.length > 0 && (
         <div className="plpg-sources">
           {sources.map((src, i) => {
-            const color      = SOURCE_COLORS[i % SOURCE_COLORS.length];
-            const used       = Number(src.current_hour_usage);
-            const limit      = src.max_per_hour;
-            const pct        = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
-            const remaining  = Math.max(0, limit - used);
-            const srcTotal   = buckets
-              .filter(b => b.source === src.name)
-              .reduce((s, b) => s + Number(b.count), 0);
+            const color         = SOURCE_COLORS[i % SOURCE_COLORS.length];
+            const used          = Number(src.current_hour_usage);
+            const limit         = src.max_per_hour;
+            const fillPct       = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+            const remaining     = Math.max(0, limit - used);
+            const srcTotal      = buckets.filter(b => b.source === src.name).reduce((s, b) => s + Number(b.count), 0);
+            const srcUniqueGen  = uniqueGensBySource[src.name] ?? 0;
+            const srcClaims     = claimsBySource[src.name] ?? 0;
+            const srcUniqueClaim = uniqueClaimersBySource[src.name] ?? 0;
             return (
               <div key={src.name} className="plpg-source-card" style={{ '--src-color': color }}>
                 <div className="plpg-source-dot" />
@@ -274,12 +326,10 @@ export default function PlpgPage() {
                 </div>
 
                 <div className="plpg-progress-track">
-                  <div className="plpg-progress-fill" style={{ width: `${pct}%` }} />
+                  <div className="plpg-progress-fill" style={{ width: `${fillPct}%` }} />
                 </div>
 
-                <div className="plpg-remaining">
-                  {remaining.toLocaleString()} remaining
-                </div>
+                <div className="plpg-remaining">{remaining.toLocaleString()} remaining</div>
 
                 <div className="plpg-source-limits">
                   <div className="plpg-limit-item">
@@ -292,9 +342,23 @@ export default function PlpgPage() {
                   </div>
                 </div>
 
-                <div className="plpg-source-usage">
-                  <span className="plpg-usage-count">{srcTotal.toLocaleString()}</span>
-                  <span className="plpg-usage-label"> reqs in range</span>
+                <div className="plpg-source-roi">
+                  <div className="plpg-roi-item">
+                    <span className="plpg-roi-val">{fmt(srcTotal)}</span>
+                    <span className="plpg-roi-label">gens</span>
+                  </div>
+                  <div className="plpg-roi-item">
+                    <span className="plpg-roi-val">{fmt(srcUniqueGen)}</span>
+                    <span className="plpg-roi-label">unique</span>
+                  </div>
+                  <div className="plpg-roi-item">
+                    <span className="plpg-roi-val">{fmt(srcClaims)}</span>
+                    <span className="plpg-roi-label">claims</span>
+                  </div>
+                  <div className="plpg-roi-item">
+                    <span className="plpg-roi-val plpg-roi-conv">{pct(srcUniqueClaim, srcUniqueGen)}</span>
+                    <span className="plpg-roi-label">conv.</span>
+                  </div>
                 </div>
               </div>
             );
@@ -322,8 +386,7 @@ export default function PlpgPage() {
           {GRANULARITIES.map(g => {
             const enabled = granularityEnabled(g.value, from, to);
             return (
-              <button
-                key={g.value}
+              <button key={g.value}
                 className={`plpg-gran-btn${granularity === g.value ? ' active' : ''}${!enabled ? ' disabled' : ''}`}
                 onClick={() => handleGranChange(g.value)}
                 disabled={!enabled}
@@ -349,16 +412,19 @@ export default function PlpgPage() {
       {/* Authentications chart */}
       <div className="plpg-chart-card">
         <div className="plpg-chart-header">
-          <span className="plpg-chart-title">Authentications</span>
-          <span className="plpg-chart-total">{totalReqs.toLocaleString()} total</span>
+          <div>
+            <span className="plpg-chart-title">Authentications</span>
+            <span className="plpg-chart-total">{fmt(usageMetric === 'total' ? totalReqs : totalUniqueG)} {usageMetric === 'total' ? 'total' : 'unique users'}</span>
+          </div>
+          <MetricToggle value={usageMetric} onChange={setUsageMetric} />
         </div>
         {loadingUsage ? (
           <div className="plpg-chart-state">Loading…</div>
-        ) : chartData.length === 0 ? (
+        ) : usageData.length === 0 ? (
           <div className="plpg-chart-state muted">No data in selected range.</div>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={chartData} margin={{ top: 8, right: 20, left: 0, bottom: 4 }}>
+            <LineChart data={usageData} margin={{ top: 8, right: 20, left: 0, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,.12)" vertical={false} />
               <XAxis dataKey="label" tick={{ fill: 'var(--muted)', fontSize: 11 }}
                 axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
@@ -366,15 +432,12 @@ export default function PlpgPage() {
                 axisLine={false} tickLine={false} width={40} allowDecimals={false} />
               <Tooltip {...tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-              {visibleSources.map((src) => (
-                <Line
-                  key={src}
-                  type="monotone"
-                  dataKey={src}
+              {visibleUsage.map(src => (
+                <Line key={src} type="monotone"
+                  dataKey={usageMetric === 'total' ? src : src + '_u'}
+                  name={usageMetric === 'total' ? src : `${src} (unique)`}
                   stroke={SOURCE_COLORS[allSources.indexOf(src) % SOURCE_COLORS.length]}
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4 }}
+                  strokeWidth={2} dot={false} activeDot={{ r: 4 }}
                 />
               ))}
             </LineChart>
@@ -385,15 +448,18 @@ export default function PlpgPage() {
       {/* Claims chart */}
       <div className="plpg-chart-card plpg-chart-card--claims">
         <div className="plpg-chart-header">
-          <span className="plpg-chart-title">Claimed Pages</span>
-          <span className="plpg-chart-total">{totalClaims.toLocaleString()} total</span>
+          <div>
+            <span className="plpg-chart-title">Claimed Pages</span>
+            <span className="plpg-chart-total">{fmt(claimsMetric === 'total' ? totalClaims : totalUniqueC)} {claimsMetric === 'total' ? 'total' : 'unique claimers'}</span>
+          </div>
+          <MetricToggle value={claimsMetric} onChange={setClaimsMetric} />
         </div>
         {loadingClaims ? (
           <div className="plpg-chart-state">Loading…</div>
         ) : claimsData.length === 0 ? (
           <div className="plpg-chart-state muted">No claims in selected range.</div>
         ) : (
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={220}>
             <LineChart data={claimsData} margin={{ top: 8, right: 20, left: 0, bottom: 4 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,.12)" vertical={false} />
               <XAxis dataKey="label" tick={{ fill: 'var(--muted)', fontSize: 11 }}
@@ -401,18 +467,69 @@ export default function PlpgPage() {
               <YAxis tick={{ fill: 'var(--muted)', fontSize: 11 }}
                 axisLine={false} tickLine={false} width={40} allowDecimals={false} />
               <Tooltip {...tooltipStyle} />
-              <Line
-                type="monotone"
-                dataKey="claims"
-                stroke={CLAIMS_COLOR}
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4 }}
-              />
+              {visibleClaims.length > 0 && <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />}
+              {visibleClaims.length > 0
+                ? visibleClaims.map(src => (
+                    <Line key={src} type="monotone"
+                      dataKey={claimsMetric === 'total' ? src : src + '_u'}
+                      name={claimsMetric === 'total' ? src : `${src} (unique)`}
+                      stroke={SOURCE_COLORS[allSources.indexOf(src) % SOURCE_COLORS.length]}
+                      strokeWidth={2} dot={false} activeDot={{ r: 4 }}
+                    />
+                  ))
+                : (
+                    <Line type="monotone"
+                      dataKey={claimsMetric === 'total' ? 'unattributed' : 'unattributed_u'}
+                      name={claimsMetric === 'total' ? 'claims' : 'unique claimers'}
+                      stroke="#06b6d4" strokeWidth={2} dot={false} activeDot={{ r: 4 }}
+                    />
+                  )
+              }
             </LineChart>
           </ResponsiveContainer>
         )}
       </div>
+
+      {/* ROI table */}
+      {roiRows.length > 0 && (
+        <div className="plpg-chart-card">
+          <div className="plpg-chart-header">
+            <span className="plpg-chart-title">ROI by Source</span>
+            <span className="plpg-chart-sub">unique counts are per-bucket sums — directional</span>
+          </div>
+          <div className="plpg-roi-table-wrap">
+            <table className="plpg-roi-table">
+              <thead>
+                <tr>
+                  <th>Source</th>
+                  <th>Gens</th>
+                  <th>Unique generators</th>
+                  <th>Avg gens / user</th>
+                  <th>Claims</th>
+                  <th>Unique claimers</th>
+                  <th>Conversion</th>
+                </tr>
+              </thead>
+              <tbody>
+                {roiRows.map((row, i) => (
+                  <tr key={row.source}>
+                    <td>
+                      <span className="plpg-src-dot" style={{ background: SOURCE_COLORS[i % SOURCE_COLORS.length] }} />
+                      {row.source}
+                    </td>
+                    <td>{fmt(row.gens)}</td>
+                    <td>{fmt(row.uniqueGens)}</td>
+                    <td>{row.uniqueGens > 0 ? (row.gens / row.uniqueGens).toFixed(1) : '—'}</td>
+                    <td>{fmt(row.claims)}</td>
+                    <td>{fmt(row.uniqueClaimers)}</td>
+                    <td className="plpg-conv-cell">{pct(row.uniqueClaimers, row.uniqueGens)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

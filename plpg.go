@@ -70,6 +70,8 @@ func handleIngestPlpgRequest(w http.ResponseWriter, r *http.Request) {
 type PlpgClaimPayload struct {
 	SessionID string `json:"session_id"`
 	ClaimedAt *int64 `json:"claimed_at"`
+	Source    string `json:"source"`
+	UserID    string `json:"user_id"`
 }
 
 func handleIngestPlpgClaim(w http.ResponseWriter, r *http.Request) {
@@ -89,8 +91,9 @@ func handleIngestPlpgClaim(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err := db.Exec(r.Context(), `
-		INSERT INTO plpg_claims (session_id, claimed_at) VALUES ($1, $2)
-	`, p.SessionID, claimedAt)
+		INSERT INTO plpg_claims (session_id, claimed_at, source, user_id)
+		VALUES ($1, $2, $3, $4)
+	`, p.SessionID, claimedAt, p.Source, p.UserID)
 	if err != nil {
 		jsonError(w, "db error: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -186,7 +189,8 @@ func handlePlpgUsage(w http.ResponseWriter, r *http.Request) {
 		SELECT
 			source,
 			EXTRACT(EPOCH FROM %s)::bigint AS ts,
-			COUNT(*)::bigint AS count
+			COUNT(*)::bigint                     AS count,
+			COUNT(DISTINCT user_id)::bigint      AS unique_users
 		FROM plpg_requests
 		WHERE requested_at >= $1 AND requested_at <= $2%s
 		GROUP BY source, ts
@@ -201,15 +205,16 @@ func handlePlpgUsage(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type Bucket struct {
-		Source string `json:"source"`
-		Ts     int64  `json:"ts"`
-		Count  int64  `json:"count"`
+		Source      string `json:"source"`
+		Ts          int64  `json:"ts"`
+		Count       int64  `json:"count"`
+		UniqueUsers int64  `json:"unique_users"`
 	}
 
 	buckets := []Bucket{}
 	for rows.Next() {
 		var b Bucket
-		if err := rows.Scan(&b.Source, &b.Ts, &b.Count); err != nil {
+		if err := rows.Scan(&b.Source, &b.Ts, &b.Count, &b.UniqueUsers); err != nil {
 			jsonError(w, "scan error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -226,6 +231,7 @@ func handlePlpgClaims(w http.ResponseWriter, r *http.Request) {
 	granularity := q.Get("granularity")
 	fromStr := q.Get("from")
 	toStr := q.Get("to")
+	source := q.Get("source")
 
 	truncExpr := safeTruncExpr(granularity, "claimed_at")
 
@@ -242,17 +248,26 @@ func handlePlpgClaims(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	args := []any{from, to}
+	extraCond := ""
+	if source != "" {
+		extraCond = " AND source = $3"
+		args = append(args, source)
+	}
+
 	sql := fmt.Sprintf(`
 		SELECT
+			source,
 			EXTRACT(EPOCH FROM %s)::bigint AS ts,
-			COUNT(*)::bigint AS count
+			COUNT(*)::bigint                  AS count,
+			COUNT(DISTINCT NULLIF(user_id,''))::bigint AS unique_claimers
 		FROM plpg_claims
-		WHERE claimed_at >= $1 AND claimed_at <= $2
-		GROUP BY ts
-		ORDER BY ts
-	`, truncExpr)
+		WHERE claimed_at >= $1 AND claimed_at <= $2%s
+		GROUP BY source, ts
+		ORDER BY source, ts
+	`, truncExpr, extraCond)
 
-	rows, err := db.Query(r.Context(), sql, from, to)
+	rows, err := db.Query(r.Context(), sql, args...)
 	if err != nil {
 		jsonError(w, "db error: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -260,14 +275,16 @@ func handlePlpgClaims(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type Bucket struct {
-		Ts    int64 `json:"ts"`
-		Count int64 `json:"count"`
+		Source         string `json:"source"`
+		Ts             int64  `json:"ts"`
+		Count          int64  `json:"count"`
+		UniqueClaimers int64  `json:"unique_claimers"`
 	}
 
 	buckets := []Bucket{}
 	for rows.Next() {
 		var b Bucket
-		if err := rows.Scan(&b.Ts, &b.Count); err != nil {
+		if err := rows.Scan(&b.Source, &b.Ts, &b.Count, &b.UniqueClaimers); err != nil {
 			jsonError(w, "scan error: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
