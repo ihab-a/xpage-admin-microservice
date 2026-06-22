@@ -327,12 +327,6 @@
   margin-bottom: 6px;
 }
 
-.ai-stat-value-row {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-}
-
 .ai-stat-value {
   font-size: 1.4rem;
   font-weight: 700;
@@ -340,15 +334,18 @@
 }
 
 .ai-stat-trend {
+  display: inline-block;
+  margin-top: 4px;
   font-size: .72rem;
   font-weight: 600;
-  padding: 2px 5px;
+  padding: 2px 6px;
   border-radius: 4px;
   white-space: nowrap;
 }
 
-.ai-stat-trend.up   { color: #10b981; background: rgba(16,185,129,.12); }
-.ai-stat-trend.down { color: #ef4444; background: rgba(239,68,68,.12);  }
+.ai-stat-trend.positive { color: #10b981; background: rgba(16,185,129,.12); }
+.ai-stat-trend.negative { color: #ef4444; background: rgba(239,68,68,.12);  }
+.ai-stat-trend.neutral  { color: #60a5fa; background: rgba(96,165,250,.12); }
 
 .ai-stat-sub {
   font-size: .72rem;

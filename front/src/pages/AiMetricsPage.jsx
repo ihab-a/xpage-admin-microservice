@@ -316,18 +316,21 @@ function makeGroupedBarOpt({ categories, series, cs, yFormatter, tooltipFmt }) {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, accent, sub, trend }) {
+function StatCard({ label, value, accent, sub, trend, trendDir = 'good' }) {
+  let trendCls = '';
+  if (trend) {
+    if (trendDir === 'neutral') trendCls = 'neutral';
+    else trendCls = (trendDir === 'good') === trend.up ? 'positive' : 'negative';
+  }
   return (
     <div className="ai-stat-card" style={accent ? { borderColor: accent + '55' } : {}}>
       <div className="ai-stat-label">{label}</div>
-      <div className="ai-stat-value-row">
-        <div className="ai-stat-value" style={accent ? { color: accent } : {}}>{value}</div>
-        {trend && (
-          <div className={`ai-stat-trend ${trend.up ? 'up' : 'down'}`}>
-            {trend.up ? '↑' : '↓'}{Math.abs(trend.pct).toFixed(1)}%
-          </div>
-        )}
-      </div>
+      <div className="ai-stat-value" style={accent ? { color: accent } : {}}>{value}</div>
+      {trend && (
+        <div className={`ai-stat-trend ${trendCls}`}>
+          {trend.up ? '↑' : '↓'}{Math.abs(trend.pct).toFixed(1)}%
+        </div>
+      )}
       {sub && <div className="ai-stat-sub">{sub}</div>}
     </div>
   );
@@ -939,16 +942,16 @@ export default function AiMetricsPage() {
 
       {/* ── Summary cards ── */}
       <div className="ai-stat-grid">
-        <StatCard label="Requests"          value={fmtNum(totReq)}  trend={reqTrend} />
-        <StatCard label="Input Tokens"      value={fmtNum(totIn)}   trend={inTrend} />
-        <StatCard label="Output Tokens"     value={fmtNum(totOut)}  trend={outTrend} />
-        {hasThk && <StatCard label="Thinking Tokens" value={fmtNum(totThk)} trend={thkTrend} />}
+        <StatCard label="Requests"          value={fmtNum(totReq)}  trend={reqTrend}  trendDir="good" />
+        <StatCard label="Input Tokens"      value={fmtNum(totIn)}   trend={inTrend}   trendDir="neutral" />
+        <StatCard label="Output Tokens"     value={fmtNum(totOut)}  trend={outTrend}  trendDir="neutral" />
+        {hasThk && <StatCard label="Thinking Tokens" value={fmtNum(totThk)} trend={thkTrend} trendDir="neutral" />}
         <StatCard label="Total Tokens"      value={fmtNum(totIn + totOut + totThk)} />
-        <StatCard label="Errors" accent="#ef4444" value={fmtNum(totErr)} trend={errTrend}
+        <StatCard label="Errors" accent="#ef4444" value={fmtNum(totErr)} trend={errTrend} trendDir="bad"
           sub={totReq > 0 ? `${(totErr/totReq*100).toFixed(1)}% rate` : undefined} />
         <StatCard label="Active Models"     value={String(allModels.length)} />
-        <StatCard label="Avg Response Time" value={fmtMs(avgRt)}    trend={rtTrend} />
-        {costKnown && <StatCard label="Est. Total Cost" accent="#10b981" value={fmtCost(totalCost)} trend={costTrend} />}
+        <StatCard label="Avg Response Time" value={fmtMs(avgRt)}    trend={rtTrend}   trendDir="bad" />
+        {costKnown && <StatCard label="Est. Total Cost" accent="#10b981" value={fmtCost(totalCost)} trend={costTrend} trendDir="bad" />}
       </div>
 
       {/* ── Requests over time ── */}
