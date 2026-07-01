@@ -1,9 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import client from '../api/client';
 import SuspendModal from '../components/SuspendModal';
 import './XHostingsPage.css';
 import './UsersPage.css';
+
+const HOSTING_STATUSES = [
+  { value: '',            label: 'All statuses' },
+  { value: 'ACTIVE',      label: 'Active' },
+  { value: 'DEACTIVATED', label: 'Deactivated' },
+  { value: 'INACTIVE',    label: 'Inactive' },
+  { value: 'ARCHIVED',    label: 'Archived' },
+  { value: 'BUFFERING',   label: 'Buffering' },
+  { value: 'BUFFERED',    label: 'Buffered' },
+  { value: 'SUSPENDED',   label: 'Suspended' },
+];
 
 const HOSTING_STATUS_LABELS = {
   1: 'Active',
@@ -40,11 +51,12 @@ function formatReason(r) {
 
 export default function XHostingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [hostings, setHostings] = useState([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, per_page: 25, pages: 1 });
   const [search, setSearch] = useState('');
   const [userIdFilter, setUserIdFilter] = useState(searchParams.get('user_id') || '');
-  const [suspendedOnly, setSuspendedOnly] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -57,12 +69,12 @@ export default function XHostingsPage() {
     const base = {
       search: search || undefined,
       user_id: userIdFilter || undefined,
-      suspended: suspendedOnly ? 'true' : undefined,
+      status: statusFilter || undefined,
       page,
       per_page: 25,
     };
     return { ...base, ...overrides };
-  }, [search, userIdFilter, suspendedOnly, page]);
+  }, [search, userIdFilter, statusFilter, page]);
 
   const fetchHostings = useCallback(async (params) => {
     setLoading(true);
@@ -85,7 +97,7 @@ export default function XHostingsPage() {
 
   useEffect(() => {
     fetchHostings(buildParams());
-  }, [suspendedOnly, page, fetchHostings, buildParams]);
+  }, [statusFilter, page, fetchHostings, buildParams]);
 
   // Pre-fill user_id from query param on mount
   useEffect(() => {
@@ -115,6 +127,12 @@ export default function XHostingsPage() {
     userIdTimer.current = setTimeout(() => {
       fetchHostings(buildParams({ user_id: val || undefined, page: 1 }));
     }, 400);
+  }
+
+  function handleStatusChange(e) {
+    const val = e.target.value;
+    setStatusFilter(val);
+    setPage(1);
   }
 
   async function handleSuspend(hosting, reason, otherReason) {
@@ -179,14 +197,15 @@ export default function XHostingsPage() {
             onChange={handleUserIdChange}
           />
         </div>
-        <label className="toggle-label">
-          <input
-            type="checkbox"
-            checked={suspendedOnly}
-            onChange={(e) => { setSuspendedOnly(e.target.checked); setPage(1); }}
-          />
-          Suspended only
-        </label>
+        <select
+          className="status-select"
+          value={statusFilter}
+          onChange={handleStatusChange}
+        >
+          {HOSTING_STATUSES.map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
       </div>
 
       {userIdFilter && (
@@ -233,7 +252,16 @@ export default function XHostingsPage() {
                     <div className="xhosting-id">{h.id}</div>
                   </td>
                   <td>
-                    <span className="xhosting-user-id">{h.user_id || '—'}</span>
+                    <div className="xhosting-user-id">{h.user_id || '—'}</div>
+                    {h.user_id && (
+                      <button
+                        className="action-btn action-btn-go go-user-btn"
+                        onClick={() => navigate(`/users?search=${h.user_id}`)}
+                        title="View this user"
+                      >
+                        View User →
+                      </button>
+                    )}
                   </td>
                   <td>
                     <span className={`status-badge ${statusClass}`}>{statusLabel}</span>

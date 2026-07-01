@@ -18,7 +18,7 @@ export default function SuspendModal({ isOpen, onClose, onConfirm, entityType, e
   const [confirmText, setConfirmText] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const confirmPhrase = `yes suspend this ${entityType}`;
+  const confirmPhrase = `suspend ${entityType}`;
 
   useEffect(() => {
     if (isOpen) {

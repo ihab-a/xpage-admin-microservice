@@ -81,3 +81,23 @@
   transition: border-color .15s;
 }
 .clear-filter-btn:hover { border-color: var(--accent); }
+
+.status-select {
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font-size: .83rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color .15s;
+}
+.status-select:focus { border-color: var(--accent); }
+
+.go-user-btn {
+  margin-top: 6px;
+  font-size: .72rem;
+  padding: 3px 8px;
+}

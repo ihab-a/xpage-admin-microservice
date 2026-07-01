@@ -85,7 +85,7 @@ func handleUnsuspendUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleListXHostings(w http.ResponseWriter, r *http.Request) {
-	forwardQueryToLaravel(w, r, "/api/global/admin/xhostings", []string{"page", "per_page", "search", "suspended", "user_id"})
+	forwardQueryToLaravel(w, r, "/api/global/admin/xhostings", []string{"page", "per_page", "search", "suspended", "user_id", "status"})
 }
 
 func handleSuspendHosting(w http.ResponseWriter, r *http.Request) {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import client from '../api/client';
 import SuspendModal from '../components/SuspendModal';
 import './UsersPage.css';
@@ -19,9 +19,10 @@ function formatReason(r) {
 
 export default function UsersPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [users, setUsers] = useState([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, per_page: 25, pages: 1 });
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') || '');
   const [suspendedOnly, setSuspendedOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
