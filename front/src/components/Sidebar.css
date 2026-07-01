@@ -88,3 +88,17 @@
   transition: border-color .15s, color .15s;
 }
 .sidebar-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+.sidebar-section-label {
+  font-size: .7rem;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 10px 12px 4px;
+  opacity: .7;
+}
+
+.sidebar-sub-link {
+  padding-left: 28px;
+}

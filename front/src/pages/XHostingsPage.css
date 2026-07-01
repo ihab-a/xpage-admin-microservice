@@ -44,3 +44,40 @@
 
 .xhosting-name { font-weight: 600; font-size: .88rem; }
 .xhosting-id { font-size: .7rem; color: var(--muted); font-family: monospace; margin-top: 2px; }
+.xhosting-user-id { font-size: .72rem; color: var(--muted); font-family: monospace; }
+
+.status-deactivated { background: rgba(234,179,8,.12); color: #ca8a04; }
+.status-inactive     { background: rgba(156,163,175,.15); color: var(--muted); }
+
+.active-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  margin-bottom: 12px;
+  background: rgba(99,102,241,.08);
+  border: 1px solid rgba(99,102,241,.25);
+  border-radius: 8px;
+  font-size: .82rem;
+  color: var(--text);
+}
+.active-filter-bar code {
+  font-family: monospace;
+  font-size: .8rem;
+  color: var(--accent);
+  background: rgba(99,102,241,.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.clear-filter-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid rgba(99,102,241,.3);
+  color: var(--accent);
+  border-radius: 5px;
+  padding: 3px 9px;
+  font-size: .75rem;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+.clear-filter-btn:hover { border-color: var(--accent); }

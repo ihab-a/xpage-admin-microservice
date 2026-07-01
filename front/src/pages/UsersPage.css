@@ -108,3 +108,32 @@
   white-space: nowrap;
 }
 .toggle-label input { cursor: pointer; accent-color: var(--accent); }
+
+.user-ip { font-size: .78rem; color: var(--muted); font-family: monospace; white-space: nowrap; }
+
+.hostings-count {
+  display: inline-block;
+  min-width: 28px;
+  text-align: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: .8rem;
+  font-weight: 600;
+  background: var(--border);
+  color: var(--text);
+}
+
+.date-cell { font-size: .78rem; color: var(--muted); white-space: nowrap; }
+
+.action-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.action-btn-go {
+  color: var(--accent);
+  border-color: rgba(99,102,241,.3);
+}
+.action-btn-go:hover { border-color: var(--accent); background: rgba(99,102,241,.06); }

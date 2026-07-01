@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import client from '../api/client';
 import SuspendModal from '../components/SuspendModal';
 import './UsersPage.css';
@@ -17,6 +18,7 @@ function formatReason(r) {
 }
 
 export default function UsersPage() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, per_page: 25, pages: 1 });
   const [search, setSearch] = useState('');
@@ -24,7 +26,7 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [modal, setModal] = useState(null); // { user } | null
+  const [modal, setModal] = useState(null);
   const [actionError, setActionError] = useState('');
   const searchTimer = useRef(null);
 
@@ -35,9 +37,9 @@ export default function UsersPage() {
       const { data } = await client.get('/users', { params });
       setUsers(data.data ?? []);
       setMeta({
-        total:    data.paginator?.total    ?? 0,
+        total:    data.paginator?.total       ?? 0,
         page:     data.paginator?.currentPage ?? 1,
-        pages:    data.paginator?.lastPage ?? 1,
+        pages:    data.paginator?.lastPage    ?? 1,
         per_page: 25,
       });
     } catch {
@@ -105,7 +107,7 @@ export default function UsersPage() {
           <input
             type="text"
             className="search-input"
-            placeholder="Search by name or email…"
+            placeholder="Search by ID, name or email…"
             value={search}
             onChange={handleSearchChange}
           />
@@ -128,17 +130,21 @@ export default function UsersPage() {
           <thead>
             <tr>
               <th>User</th>
+              <th>Last IP</th>
+              <th>Hostings</th>
               <th>Status</th>
               <th>Reason</th>
               <th>Suspended At</th>
+              <th>Created</th>
+              <th>Updated</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && users.length === 0 ? (
-              <tr><td colSpan="5" className="table-empty">Loading…</td></tr>
+              <tr><td colSpan="9" className="table-empty">Loading…</td></tr>
             ) : users.length === 0 ? (
-              <tr><td colSpan="5" className="table-empty">No users found.</td></tr>
+              <tr><td colSpan="9" className="table-empty">No users found.</td></tr>
             ) : users.map((u) => {
               const isSuspended = !!u.suspended_at;
               return (
@@ -147,6 +153,12 @@ export default function UsersPage() {
                     <div className="user-name">{[u.first_name, u.last_name].filter(Boolean).join(' ') || '—'}</div>
                     <div className="user-email">{u.email}</div>
                     <div className="user-id">{u.id}</div>
+                  </td>
+                  <td>
+                    <span className="user-ip">{u.last_auth_ip || '—'}</span>
+                  </td>
+                  <td>
+                    <span className="hostings-count">{u.hostings_count ?? 0}</span>
                   </td>
                   <td>
                     <span className={`status-badge ${isSuspended ? 'status-suspended' : 'status-active'}`}>
@@ -165,15 +177,30 @@ export default function UsersPage() {
                     <span className="suspended-at">{formatDate(u.suspended_at)}</span>
                   </td>
                   <td>
-                    {isSuspended ? (
-                      <button className="action-btn action-btn-unsuspend" onClick={() => handleUnsuspend(u)}>
-                        Unsuspend
+                    <span className="date-cell">{formatDate(u.created_at)}</span>
+                  </td>
+                  <td>
+                    <span className="date-cell">{formatDate(u.updated_at)}</span>
+                  </td>
+                  <td>
+                    <div className="action-col">
+                      <button
+                        className="action-btn action-btn-go"
+                        onClick={() => navigate(`/xhostings?user_id=${u.id}`)}
+                        title="View hostings for this user"
+                      >
+                        Hostings →
                       </button>
-                    ) : (
-                      <button className="action-btn action-btn-suspend" onClick={() => setModal({ user: u })}>
-                        Suspend
-                      </button>
-                    )}
+                      {isSuspended ? (
+                        <button className="action-btn action-btn-unsuspend" onClick={() => handleUnsuspend(u)}>
+                          Unsuspend
+                        </button>
+                      ) : (
+                        <button className="action-btn action-btn-suspend" onClick={() => setModal({ user: u })}>
+                          Suspend
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
