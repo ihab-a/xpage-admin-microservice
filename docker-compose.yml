@@ -26,6 +26,8 @@ services:
       PORT:           8080
       DATABASE_URL:   postgres://metrics:${POSTGRES_PASSWORD:-changeme}@postgres:5432/admin_metrics?sslmode=disable
       INGEST_SECRET:  ${INGEST_SECRET}     # shared secret — Laravel must set METRICS_SERVICE_SECRET to the same value
+      LARAVEL_URL:    ${LARAVEL_URL}       # e.g. https://api.xpage.io
+      HMAC_SECRET:    ${HMAC_SECRET}       # must match Laravel's HMAC_SECRET
       ADMIN_EMAIL:    ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       ADMIN_NAME:     ${ADMIN_NAME:-Admin}
