@@ -33,8 +33,13 @@ export default function UsersPage() {
     setError('');
     try {
       const { data } = await client.get('/users', { params });
-      setUsers(data.data ?? data.data);
-      setMeta(data.meta);
+      setUsers(data.data ?? []);
+      setMeta({
+        total:    data.paginator?.total    ?? 0,
+        page:     data.paginator?.currentPage ?? 1,
+        pages:    data.paginator?.lastPage ?? 1,
+        per_page: 25,
+      });
     } catch {
       setError('Failed to load users.');
     } finally {

@@ -36,8 +36,13 @@ export default function XHostingsPage() {
     setError('');
     try {
       const { data } = await client.get('/xhostings', { params });
-      setHostings(data.data);
-      setMeta(data.meta);
+      setHostings(data.data ?? []);
+      setMeta({
+        total:    data.paginator?.total       ?? 0,
+        page:     data.paginator?.currentPage ?? 1,
+        pages:    data.paginator?.lastPage    ?? 1,
+        per_page: 25,
+      });
     } catch {
       setError('Failed to load hostings.');
     } finally {
