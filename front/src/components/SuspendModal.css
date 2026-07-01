@@ -1,0 +1,125 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+
+.modal-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 32px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.modal-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.modal-entity-name {
+  font-size: .83rem;
+  color: var(--muted);
+  margin-bottom: 20px;
+  font-family: monospace;
+}
+
+.modal-field {
+  margin-bottom: 16px;
+}
+
+.modal-label {
+  display: block;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 6px;
+}
+
+.modal-select,
+.modal-textarea,
+.modal-confirm-input {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: .875rem;
+  outline: none;
+  transition: border-color .15s;
+  box-sizing: border-box;
+}
+
+.modal-select:focus,
+.modal-textarea:focus,
+.modal-confirm-input:focus {
+  border-color: var(--accent);
+}
+
+.modal-select option { background: var(--card); }
+
+.modal-textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+.modal-confirm-phrase {
+  font-size: .83rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.modal-confirm-phrase strong {
+  color: var(--text);
+  font-family: monospace;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+.modal-btn-cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: .875rem;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+.modal-btn-cancel:hover { border-color: var(--muted); }
+
+.modal-btn-suspend {
+  background: #dc2626;
+  border: 1px solid #dc2626;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: .875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.modal-btn-suspend:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+.modal-btn-suspend:not(:disabled):hover { opacity: .85; }

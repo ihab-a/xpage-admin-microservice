@@ -16,8 +16,11 @@ import (
 //go:embed all:front/dist
 var frontendFS embed.FS
 
+var globalCfg Config
+
 func main() {
 	cfg := loadConfig()
+	globalCfg = cfg
 	ctx := context.Background()
 
 	if err := initDB(ctx, cfg.DatabaseURL); err != nil {
@@ -55,6 +58,12 @@ func main() {
 		r.Get("/api/v1/orders/stats", handleOrderStats)
 		r.Get("/api/v1/orders/{id}", handleShowOrder)
 		r.Get("/api/v1/hostings", handleListHostings)
+		r.Get("/api/v1/users", handleListUsers)
+		r.Post("/api/v1/users/{id}/suspend", handleSuspendUser)
+		r.Post("/api/v1/users/{id}/unsuspend", handleUnsuspendUser)
+		r.Get("/api/v1/xhostings", handleListXHostings)
+		r.Post("/api/v1/xhostings/{id}/suspend", handleSuspendHosting)
+		r.Post("/api/v1/xhostings/{id}/unsuspend", handleUnsuspendHosting)
 		r.Get("/api/v1/plpg/sources", handlePlpgSources)
 		r.Get("/api/v1/plpg/usage", handlePlpgUsage)
 		r.Get("/api/v1/plpg/claims", handlePlpgClaims)
@@ -98,7 +107,7 @@ func spaHandler() http.HandlerFunc {
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)

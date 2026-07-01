@@ -9,6 +9,8 @@ type Config struct {
 	AdminEmail    string
 	AdminPassword string
 	AdminName     string
+	LaravelURL    string
+	HMACSecret    string
 }
 
 func loadConfig() Config {
@@ -19,6 +21,8 @@ func loadConfig() Config {
 		AdminEmail:    os.Getenv("ADMIN_EMAIL"),
 		AdminPassword: os.Getenv("ADMIN_PASSWORD"),
 		AdminName:     getenv("ADMIN_NAME", "Admin"),
+		LaravelURL:    os.Getenv("LARAVEL_URL"),
+		HMACSecret:    os.Getenv("HMAC_SECRET"),
 	}
 }
 
