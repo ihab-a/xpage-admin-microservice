@@ -45,8 +45,8 @@ function formatDate(ts) {
 }
 
 function formatReason(r) {
-  if (!r) return '—';
-  return r.replace(/_/g, ' ');
+  if (r == null || r === '') return '—';
+  return String(r).replace(/_/g, ' ');
 }
 
 export default function XHostingsPage() {
