@@ -17,23 +17,23 @@ const HOSTING_STATUSES = [
 ];
 
 const HOSTING_STATUS_LABELS = {
-  1: 'Active',
-  2: 'Deactivated',
-  3: 'Inactive',
-  4: 'Archived',
-  5: 'Buffering',
-  6: 'Buffered',
-  7: 'Suspended',
+  ACTIVE:      'Active',
+  DEACTIVATED: 'Deactivated',
+  INACTIVE:    'Inactive',
+  ARCHIVED:    'Archived',
+  BUFFERING:   'Buffering',
+  BUFFERED:    'Buffered',
+  SUSPENDED:   'Suspended',
 };
 
 const HOSTING_STATUS_CLASS = {
-  1: 'status-active',
-  2: 'status-deactivated',
-  3: 'status-inactive',
-  4: 'status-inactive',
-  5: 'status-inactive',
-  6: 'status-inactive',
-  7: 'status-suspended',
+  ACTIVE:      'status-active',
+  DEACTIVATED: 'status-deactivated',
+  INACTIVE:    'status-inactive',
+  ARCHIVED:    'status-inactive',
+  BUFFERING:   'status-inactive',
+  BUFFERED:    'status-inactive',
+  SUSPENDED:   'status-suspended',
 };
 
 function formatDate(ts) {
@@ -242,8 +242,8 @@ export default function XHostingsPage() {
             ) : hostings.length === 0 ? (
               <tr><td colSpan="8" className="table-empty">No hostings found.</td></tr>
             ) : hostings.map((h) => {
-              const isSuspended = h.status === 7;
-              const statusLabel = HOSTING_STATUS_LABELS[h.status] ?? `Status ${h.status}`;
+              const isSuspended = h.status === 'SUSPENDED';
+              const statusLabel = HOSTING_STATUS_LABELS[h.status] ?? h.status ?? '—';
               const statusClass = HOSTING_STATUS_CLASS[h.status] ?? 'status-inactive';
               return (
                 <tr key={h.id} className={`xhosting-row${isSuspended ? ' xhosting-row-suspended' : ''}`}>
