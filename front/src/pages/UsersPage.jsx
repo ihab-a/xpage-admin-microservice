@@ -89,6 +89,19 @@ export default function UsersPage() {
     }
   }
 
+  async function handleAllowDrop(user) {
+    if (!window.confirm(
+      `Allow drop for ${user.first_name} ${user.last_name} (${user.email})?\n\nThis cannot be undone.`
+    )) return;
+    setActionError('');
+    try {
+      await client.post(`/users/${user.id}/allow-drop`);
+      fetchUsers({ search, suspended: suspendedOnly ? 'true' : undefined, page, per_page: 25 });
+    } catch (e) {
+      setActionError(e.response?.data?.message || 'Failed to allow drop for user.');
+    }
+  }
+
   return (
     <div className="users-page">
       <div className="page-header">
@@ -134,6 +147,7 @@ export default function UsersPage() {
               <th>Last IP</th>
               <th>Hostings</th>
               <th>Status</th>
+              <th>Drop</th>
               <th>Reason</th>
               <th>Suspended At</th>
               <th>Created</th>
@@ -143,11 +157,12 @@ export default function UsersPage() {
           </thead>
           <tbody>
             {loading && users.length === 0 ? (
-              <tr><td colSpan="9" className="table-empty">Loading…</td></tr>
+              <tr><td colSpan="10" className="table-empty">Loading…</td></tr>
             ) : users.length === 0 ? (
-              <tr><td colSpan="9" className="table-empty">No users found.</td></tr>
+              <tr><td colSpan="10" className="table-empty">No users found.</td></tr>
             ) : users.map((u) => {
               const isSuspended = !!u.suspended_at;
+              const isDropAllowed = !!u.is_drop_allowed;
               return (
                 <tr key={u.id} className={`user-row${isSuspended ? ' user-row-suspended' : ''}`}>
                   <td>
@@ -164,6 +179,11 @@ export default function UsersPage() {
                   <td>
                     <span className={`status-badge ${isSuspended ? 'status-suspended' : 'status-active'}`}>
                       {isSuspended ? 'Suspended' : 'Active'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`status-badge ${isDropAllowed ? 'status-drop-allowed' : 'status-drop-denied'}`}>
+                      {isDropAllowed ? 'Allowed' : 'Not allowed'}
                     </span>
                   </td>
                   <td>
@@ -192,6 +212,15 @@ export default function UsersPage() {
                       >
                         Hostings →
                       </button>
+                      {!isDropAllowed && (
+                        <button
+                          className="action-btn action-btn-allow-drop"
+                          onClick={() => handleAllowDrop(u)}
+                          title="Grant drop access — cannot be undone"
+                        >
+                          Allow Drop
+                        </button>
+                      )}
                       {isSuspended ? (
                         <button className="action-btn action-btn-unsuspend" onClick={() => handleUnsuspend(u)}>
                           Unsuspend

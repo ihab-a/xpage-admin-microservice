@@ -84,6 +84,15 @@ func handleUnsuspendUser(w http.ResponseWriter, r *http.Request) {
 		bytes.NewReader(body), body)
 }
 
+// handleAllowUserDrop grants drop access to a user. Drop access can only be
+// turned on — there is no endpoint to turn it back off.
+func handleAllowUserDrop(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	body := []byte("{}")
+	laravelProxy(w, r, http.MethodPost, "/api/global/admin/user/"+id+"/allow-drop",
+		bytes.NewReader(body), body)
+}
+
 func handleListXHostings(w http.ResponseWriter, r *http.Request) {
 	forwardQueryToLaravel(w, r, "/api/global/admin/hosting", []string{"page", "per_page", "search", "suspended", "user_id", "status"})
 }

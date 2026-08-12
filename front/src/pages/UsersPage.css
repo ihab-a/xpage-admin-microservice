@@ -56,6 +56,8 @@
 }
 .status-active    { background: rgba(16,185,129,.12); color: #10b981; }
 .status-suspended { background: rgba(239,68,68,.12); color: #ef4444; }
+.status-drop-allowed { background: rgba(99,102,241,.12); color: var(--accent); }
+.status-drop-denied  { background: var(--border); color: var(--muted); }
 
 .reason-badge {
   display: inline-block;
@@ -131,6 +133,12 @@
   gap: 6px;
   align-items: flex-start;
 }
+
+.action-btn-allow-drop {
+  color: #f59e0b;
+  border-color: rgba(245,158,11,.3);
+}
+.action-btn-allow-drop:hover { border-color: #f59e0b; background: rgba(245,158,11,.06); }
 
 .action-btn-go {
   color: var(--accent);

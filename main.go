@@ -61,6 +61,7 @@ func main() {
 		r.Get("/api/v1/users", handleListUsers)
 		r.Post("/api/v1/users/{id}/suspend", handleSuspendUser)
 		r.Post("/api/v1/users/{id}/unsuspend", handleUnsuspendUser)
+		r.Post("/api/v1/users/{id}/allow-drop", handleAllowUserDrop)
 		r.Get("/api/v1/xhostings", handleListXHostings)
 		r.Post("/api/v1/xhostings/{id}/suspend", handleSuspendHosting)
 		r.Post("/api/v1/xhostings/{id}/unsuspend", handleUnsuspendHosting)
