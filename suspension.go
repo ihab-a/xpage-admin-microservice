@@ -2,12 +2,15 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -45,6 +48,47 @@ func laravelProxy(w http.ResponseWriter, r *http.Request, method, path string, b
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	w.Write(respBody)
+}
+
+// laravelCall makes the same signed request laravelProxy does, but hands the
+// response back to the caller instead of the browser — for handlers that have
+// to act on what Laravel returned.
+func laravelCall(ctx context.Context, method, path string, payload []byte) (int, []byte, error) {
+	if globalCfg.LaravelURL == "" {
+		return 0, nil, errors.New("laravel integration not configured")
+	}
+
+	var body io.Reader
+	if payload != nil {
+		body = bytes.NewReader(payload)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, globalCfg.LaravelURL+path, body)
+	if err != nil {
+		return 0, nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	if globalCfg.HMACSecret != "" {
+		mac := hmac.New(sha256.New, []byte(globalCfg.HMACSecret))
+		mac.Write(payload)
+		req.Header.Set("X-Signature", hex.EncodeToString(mac.Sum(nil)))
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return resp.StatusCode, nil, err
+	}
+
+	return resp.StatusCode, respBody, nil
 }
 
 func forwardQueryToLaravel(w http.ResponseWriter, r *http.Request, laravelPath string, allowedParams []string) {

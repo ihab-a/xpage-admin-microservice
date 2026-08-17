@@ -159,6 +159,22 @@ func migrate(ctx context.Context) error {
 		);
 		CREATE INDEX IF NOT EXISTS idx_ai_events_ts          ON ai_metric_events(ts DESC);
 		CREATE INDEX IF NOT EXISTS idx_ai_events_model_ts    ON ai_metric_events(provider, model, ts DESC);
+
+		-- Drop beta invites we sent. Laravel owns the invite itself (and whether
+		-- it was accepted) but stores only a hash of the code, so the usable link
+		-- is kept here, alongside how the delivery went.
+		CREATE TABLE IF NOT EXISTS drop_invites (
+			id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			invite_id     TEXT NOT NULL UNIQUE,
+			email         TEXT NOT NULL,
+			url           TEXT NOT NULL,
+			email_status  TEXT NOT NULL,
+			email_error   TEXT,
+			sent_by       TEXT,
+			created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		);
+		CREATE INDEX IF NOT EXISTS idx_drop_invites_email      ON drop_invites(email);
+		CREATE INDEX IF NOT EXISTS idx_drop_invites_created_at ON drop_invites(created_at DESC);
 	`)
 	return err
 }

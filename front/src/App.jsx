@@ -10,6 +10,7 @@ import UsersPage from './pages/UsersPage';
 import XHostingsPage from './pages/XHostingsPage';
 import PlpgPage from './pages/PlpgPage';
 import AiMetricsPage from './pages/AiMetricsPage';
+import DropInvitesPage from './pages/DropInvitesPage';
 import './index.css';
 
 function ProtectedLayout() {
@@ -29,6 +30,7 @@ function ProtectedLayout() {
           <Route path="/xhostings" element={<XHostingsPage />} />
           <Route path="/plpg" element={<PlpgPage />} />
           <Route path="/ai" element={<AiMetricsPage />} />
+          <Route path="/drop-invites" element={<DropInvitesPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

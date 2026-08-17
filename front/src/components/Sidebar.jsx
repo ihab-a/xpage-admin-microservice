@@ -48,6 +48,16 @@ const NAV = [
     ),
   },
   {
+    to: '/drop-invites',
+    label: 'Drop Invites',
+    icon: (
+      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+        <rect x="2.5" y="5" width="19" height="14" rx="2" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 7l9 6 9-6" />
+      </svg>
+    ),
+  },
+  {
     to: '/ai',
     label: 'AI Metrics',
     icon: (
