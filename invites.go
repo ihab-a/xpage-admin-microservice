@@ -29,10 +29,25 @@ type inviteResult struct {
 	Error    string `json:"error,omitempty"`
 }
 
+// inviteBatch mirrors the redis backed progress xPage keeps for a queued batch.
+type inviteBatch struct {
+	ID         string         `json:"id"`
+	Status     string         `json:"status"`
+	Total      int            `json:"total"`
+	Processed  int            `json:"processed"`
+	Sent       int            `json:"sent"`
+	LinkOnly   int            `json:"link_only"`
+	Failed     int            `json:"failed"`
+	CreatedAt  int64          `json:"created_at"`
+	FinishedAt *int64         `json:"finished_at"`
+	Error      *string        `json:"error"`
+	Results    []inviteResult `json:"results"`
+	NextOffset int            `json:"next_offset"`
+}
+
 // handleSendDropInvites hands the whole batch of addresses to xPage, which
-// issues the invites and sends the beta access emails. What comes back — one
-// outcome and one link per address — is kept here so the links stay visible in
-// the UI: xPage only stores a hash of each code.
+// queues a job to issue the invites and send the beta access emails. The reply
+// is a batch id: progress is followed through handleDropInviteBatch.
 func handleSendDropInvites(w http.ResponseWriter, r *http.Request) {
 	var req sendInvitesRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -60,28 +75,52 @@ func handleSendDropInvites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var sent struct {
-		Results  []inviteResult `json:"results"`
-		Sent     int            `json:"sent"`
-		LinkOnly int            `json:"link_only"`
-		Failed   int            `json:"failed"`
+	var queued struct {
+		Batch inviteBatch `json:"batch"`
 	}
-	if err := json.Unmarshal(body, &sent); err != nil {
+	if err := json.Unmarshal(body, &queued); err != nil || queued.Batch.ID == "" {
+		jsonError(w, "unexpected upstream response", http.StatusBadGateway)
+		return
+	}
+
+	jsonOK(w, map[string]any{"batch": queued.Batch})
+}
+
+// handleDropInviteBatch reports how far a queued batch has got. Every result it
+// sees is recorded on the way through, since the links it carries exist nowhere
+// else - xPage only keeps a hash of each code.
+func handleDropInviteBatch(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	path := "/api/global/admin/drop/invite/batch/" + url.PathEscape(id)
+	if after := r.URL.Query().Get("after"); after != "" {
+		path += "?after=" + url.QueryEscape(after)
+	}
+
+	status, body, err := laravelCall(r.Context(), http.MethodGet, path, []byte{})
+	if err != nil {
+		jsonError(w, "upstream error: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	if status < 200 || status >= 300 {
+		jsonError(w, laravelErrorMessage(body, status), status)
+		return
+	}
+
+	var polled struct {
+		Batch inviteBatch `json:"batch"`
+	}
+	if err := json.Unmarshal(body, &polled); err != nil {
 		jsonError(w, "unexpected upstream response", http.StatusBadGateway)
 		return
 	}
 
 	admin := currentAdmin(r)
-	for _, res := range sent.Results {
+	for _, res := range polled.Batch.Results {
 		recordSentInvite(r.Context(), res, admin.Email)
 	}
 
-	jsonOK(w, map[string]any{
-		"results":   sent.Results,
-		"sent":      sent.Sent,
-		"link_only": sent.LinkOnly,
-		"failed":    sent.Failed,
-	})
+	jsonOK(w, map[string]any{"batch": polled.Batch})
 }
 
 // handleListDropInvites returns xPage's invite list — the source of truth for

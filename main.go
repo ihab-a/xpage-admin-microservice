@@ -71,6 +71,7 @@ func main() {
 		r.Get("/api/v1/drop-invites", handleListDropInvites)
 		r.Get("/api/v1/drop-invites/stats", handleDropInviteStats)
 		r.Post("/api/v1/drop-invites", handleSendDropInvites)
+		r.Get("/api/v1/drop-invites/batch/{id}", handleDropInviteBatch)
 		r.Delete("/api/v1/drop-invites/{id}", handleRevokeDropInvite)
 		r.Get("/api/v1/ai/stats", handleAiStats)
 		r.Get("/api/v1/ai/errors", handleAiErrors)

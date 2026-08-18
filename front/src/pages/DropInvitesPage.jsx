@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import client from '../api/client';
 import './DropInvitesPage.css';
 
 const PAGE_SIZE = 25;
+const POLL_INTERVAL_MS = 1500;
 
 function formatDate(ts) {
   if (!ts) return '—';
@@ -81,7 +82,9 @@ export default function DropInvitesPage() {
 
   const [raw, setRaw] = useState('');
   const [sending, setSending] = useState(false);
-  const [results, setResults] = useState(null);
+  const [batch, setBatch] = useState(null);
+  const [results, setResults] = useState([]);
+  const pollTimer = useRef(null);
 
   const parsed = parseEmails(raw);
   const invalid = parsed.filter((e) => !EMAIL_RE.test(e));
@@ -115,24 +118,53 @@ export default function DropInvitesPage() {
   useEffect(() => { fetchInvites(page); }, [page, fetchInvites]);
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
+  // the job sends the emails, so the response is only a batch id: from there we
+  // poll, pulling just the results we have not seen yet
+  const pollBatch = useCallback(async (batchId, after) => {
+    try {
+      const { data } = await client.get(`/drop-invites/batch/${batchId}`, { params: { after } });
+      const state = data.batch;
+
+      setBatch(state);
+      if (state.results?.length) {
+        setResults((prev) => [...prev, ...state.results]);
+      }
+
+      if (state.status === 'finished' || state.status === 'failed') {
+        setSending(false);
+        fetchInvites(1);
+        fetchStats();
+        if (state.status === 'failed') {
+          setError(state.error || 'The invite job failed.');
+        }
+        return;
+      }
+
+      pollTimer.current = setTimeout(() => pollBatch(batchId, state.next_offset), POLL_INTERVAL_MS);
+    } catch (e) {
+      setSending(false);
+      setError(e.response?.data?.error || 'Lost track of the invite batch.');
+    }
+  }, [fetchInvites, fetchStats]);
+
+  useEffect(() => () => clearTimeout(pollTimer.current), []);
+
   async function handleSend() {
     if (parsed.length === 0 || sending) return;
     if (!window.confirm(`Send the Drop beta invite to ${parsed.length} address${parsed.length !== 1 ? 'es' : ''}?`)) return;
 
     setSending(true);
     setError('');
-    setResults(null);
+    setBatch(null);
+    setResults([]);
     try {
       const { data } = await client.post('/drop-invites', { emails: parsed });
-      setResults(data);
+      setBatch(data.batch);
       setRaw('');
-      setPage(1);
-      fetchInvites(1);
-      fetchStats();
+      pollBatch(data.batch.id, 0);
     } catch (e) {
-      setError(e.response?.data?.error || 'Failed to send invites.');
-    } finally {
       setSending(false);
+      setError(e.response?.data?.error || 'Failed to queue the invites.');
     }
   }
 
@@ -218,26 +250,44 @@ export default function DropInvitesPage() {
           </button>
         </div>
 
-        {results && (
+        {batch && (
           <div className="invite-results">
+            <div className="invite-progress">
+              <div className="invite-progress-bar">
+                <div
+                  className="invite-progress-fill"
+                  style={{ width: `${batch.total ? Math.round((batch.processed / batch.total) * 100) : 0}%` }}
+                />
+              </div>
+              <div className="invite-progress-label">
+                {batch.status === 'finished'
+                  ? `Done — ${batch.processed} of ${batch.total} processed`
+                  : batch.status === 'failed'
+                    ? `Job failed after ${batch.processed} of ${batch.total}`
+                    : `Sending… ${batch.processed} of ${batch.total}`}
+              </div>
+            </div>
+
             <div className="invite-results-summary">
-              <span className="result-pill result-pill-sent">{results.sent} sent</span>
-              {results.link_only > 0 && (
-                <span className="result-pill result-pill-link">{results.link_only} link only</span>
+              <span className="result-pill result-pill-sent">{batch.sent} sent</span>
+              {batch.link_only > 0 && (
+                <span className="result-pill result-pill-link">{batch.link_only} link only</span>
               )}
-              {results.failed > 0 && (
-                <span className="result-pill result-pill-failed">{results.failed} failed</span>
+              {batch.failed > 0 && (
+                <span className="result-pill result-pill-failed">{batch.failed} failed</span>
               )}
             </div>
 
-            {results.results?.map((res) => (
-              <div key={res.email} className="invite-result-row">
-                <span className="invite-result-email">{res.email}</span>
-                <StatusBadge status={res.status} />
-                {res.url && <CopyLink url={res.url} />}
-                {res.error && <span className="invite-result-error">{res.error}</span>}
-              </div>
-            ))}
+            <div className="invite-results-list">
+              {results.map((res) => (
+                <div key={res.email} className="invite-result-row">
+                  <span className="invite-result-email">{res.email}</span>
+                  <StatusBadge status={res.status} />
+                  {res.url && <CopyLink url={res.url} />}
+                  {res.error && <span className="invite-result-error">{res.error}</span>}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
