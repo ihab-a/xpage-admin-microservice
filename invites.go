@@ -26,6 +26,7 @@ type inviteResult struct {
 	Status   string `json:"status"`
 	InviteID string `json:"invite_id,omitempty"`
 	URL      string `json:"url,omitempty"`
+	MaxUses  int    `json:"max_uses,omitempty"`
 	Error    string `json:"error,omitempty"`
 }
 
@@ -84,6 +85,70 @@ func handleSendDropInvites(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonOK(w, map[string]any{"batch": queued.Batch})
+}
+
+type createLinkRequest struct {
+	Email string `json:"email"`
+	Uses  int    `json:"uses"`
+}
+
+// handleCreateDropInviteLink creates a single invite link that may be redeemed
+// as many times as asked for. Nothing is emailed and nothing is queued: the
+// link comes straight back, and is recorded here as link_only since that is
+// exactly what it is.
+func handleCreateDropInviteLink(w http.ResponseWriter, r *http.Request) {
+	var req createLinkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.Email == "" {
+		jsonError(w, "an email or label is required", http.StatusBadRequest)
+		return
+	}
+	if req.Uses < 1 {
+		req.Uses = 1
+	}
+
+	payload, err := json.Marshal(map[string]any{"email": req.Email, "uses": req.Uses})
+	if err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	status, body, err := laravelCall(r.Context(), http.MethodPost, "/api/global/admin/drop/invite", payload)
+	if err != nil {
+		jsonError(w, "invite service unreachable: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	if status < 200 || status >= 300 {
+		jsonError(w, laravelErrorMessage(body, status), status)
+		return
+	}
+
+	var created struct {
+		URL    string `json:"url"`
+		Invite struct {
+			ID      string `json:"id"`
+			Email   string `json:"email"`
+			MaxUses int    `json:"max_uses"`
+		} `json:"invite"`
+	}
+	if err := json.Unmarshal(body, &created); err != nil || created.URL == "" {
+		jsonError(w, "invite service returned no link", http.StatusBadGateway)
+		return
+	}
+
+	result := inviteResult{
+		Email:    created.Invite.Email,
+		Status:   inviteLinkOnly,
+		InviteID: created.Invite.ID,
+		URL:      created.URL,
+		MaxUses:  created.Invite.MaxUses,
+	}
+	recordSentInvite(r.Context(), result, currentAdmin(r).Email)
+
+	jsonOK(w, map[string]any{"link": result})
 }
 
 // handleDropInviteBatch reports how far a queued batch has got. Every result it

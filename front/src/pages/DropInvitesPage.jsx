@@ -86,6 +86,11 @@ export default function DropInvitesPage() {
   const [results, setResults] = useState([]);
   const pollTimer = useRef(null);
 
+  const [linkEmail, setLinkEmail] = useState('');
+  const [linkUses, setLinkUses] = useState(10);
+  const [creatingLink, setCreatingLink] = useState(false);
+  const [createdLink, setCreatedLink] = useState(null);
+
   const parsed = parseEmails(raw);
   const invalid = parsed.filter((e) => !EMAIL_RE.test(e));
 
@@ -165,6 +170,31 @@ export default function DropInvitesPage() {
     } catch (e) {
       setSending(false);
       setError(e.response?.data?.error || 'Failed to queue the invites.');
+    }
+  }
+
+  // a shareable link is made on the spot: no queue, no email, just a link that
+  // works for as many people as asked for
+  async function handleCreateLink() {
+    if (!linkEmail.trim() || creatingLink) return;
+
+    setCreatingLink(true);
+    setError('');
+    setCreatedLink(null);
+    try {
+      const { data } = await client.post('/drop-invites/link', {
+        email: linkEmail.trim(),
+        uses: Number(linkUses) || 1,
+      });
+      setCreatedLink(data.link);
+      setLinkEmail('');
+      fetchInvites(1);
+      fetchStats();
+      setPage(1);
+    } catch (e) {
+      setError(e.response?.data?.error || 'Failed to create the link.');
+    } finally {
+      setCreatingLink(false);
     }
   }
 
@@ -292,6 +322,55 @@ export default function DropInvitesPage() {
         )}
       </div>
 
+      <div className="invite-compose">
+        <div className="invite-compose-head">
+          <h2 className="invite-compose-title">Create a shareable link</h2>
+          <span className="invite-compose-hint">
+            Nothing is emailed — the link works until it runs out of uses.
+          </span>
+        </div>
+
+        <div className="invite-link-form">
+          <input
+            className="search-input invite-link-input"
+            type="text"
+            placeholder="Label or email for this link"
+            value={linkEmail}
+            onChange={(e) => setLinkEmail(e.target.value)}
+            disabled={creatingLink}
+          />
+          <label className="invite-uses-field">
+            <span>Uses</span>
+            <input
+              className="search-input invite-uses-input"
+              type="number"
+              min="1"
+              value={linkUses}
+              onChange={(e) => setLinkUses(e.target.value)}
+              disabled={creatingLink}
+            />
+          </label>
+          <button
+            className="invite-send-btn"
+            onClick={handleCreateLink}
+            disabled={creatingLink || !linkEmail.trim()}
+          >
+            {creatingLink ? 'Creating…' : 'Create link'}
+          </button>
+        </div>
+
+        {createdLink && (
+          <div className="invite-results">
+            <div className="invite-result-row">
+              <span className="invite-result-email">{createdLink.email}</span>
+              <StatusBadge status={createdLink.status} />
+              <span className="invite-sub">{createdLink.max_uses} uses</span>
+              <CopyLink url={createdLink.url} />
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="table-wrap">
         <table className="invites-table">
           <thead>
@@ -299,6 +378,7 @@ export default function DropInvitesPage() {
               <th>Email</th>
               <th>Invite link</th>
               <th>Status</th>
+              <th>Uses</th>
               <th>Email</th>
               <th>Sent</th>
               <th>Expires</th>
@@ -308,9 +388,9 @@ export default function DropInvitesPage() {
           </thead>
           <tbody>
             {loading && invites.length === 0 ? (
-              <tr><td colSpan="8" className="table-empty">Loading…</td></tr>
+              <tr><td colSpan="9" className="table-empty">Loading…</td></tr>
             ) : invites.length === 0 ? (
-              <tr><td colSpan="8" className="table-empty">No invites yet.</td></tr>
+              <tr><td colSpan="9" className="table-empty">No invites yet.</td></tr>
             ) : invites.map((inv) => (
               <tr key={inv.id}>
                 <td>
@@ -319,6 +399,9 @@ export default function DropInvitesPage() {
                 </td>
                 <td className="invite-link-cell"><CopyLink url={inv.url} /></td>
                 <td><StatusBadge status={inv.status} /></td>
+                <td>
+                  <span className="invite-uses">{inv.uses ?? 0} / {inv.max_uses ?? 1}</span>
+                </td>
                 <td>
                   {inv.email_status
                     ? <StatusBadge status={inv.email_status} />

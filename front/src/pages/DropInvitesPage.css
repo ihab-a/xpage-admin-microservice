@@ -103,6 +103,31 @@
   flex-wrap: wrap;
 }
 
+.invite-link-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.invite-link-input { flex: 1; min-width: 220px; padding-left: 12px; }
+
+.invite-uses-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: .78rem;
+  color: var(--muted);
+}
+
+.invite-uses-input { width: 110px; padding-left: 12px; }
+
+.invite-uses {
+  font-variant-numeric: tabular-nums;
+  font-size: .82rem;
+  white-space: nowrap;
+}
+
 .invite-parsed { font-size: .8rem; color: var(--muted); }
 .invite-parsed-invalid { color: #f59e0b; }
 
