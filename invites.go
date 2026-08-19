@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sort"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -375,17 +377,39 @@ func localInvites(ctx context.Context, ids []string) map[string]localInvite {
 }
 
 // laravelErrorMessage pulls the human readable part out of an xPage error body.
+// Validation failures carry their detail per field, and "Validation failed" on
+// its own tells whoever is looking at the admin nothing, so those get appended.
 func laravelErrorMessage(body []byte, status int) string {
 	var payload struct {
-		Message string `json:"message"`
-		Error   string `json:"error"`
+		Message          string              `json:"message"`
+		Error            string              `json:"error"`
+		ValidationErrors map[string][]string `json:"validationErrors"`
 	}
+
 	if err := json.Unmarshal(body, &payload); err == nil {
-		if payload.Message != "" {
-			return payload.Message
+		message := payload.Message
+		if message == "" {
+			message = payload.Error
 		}
-		if payload.Error != "" {
-			return payload.Error
+
+		if len(payload.ValidationErrors) > 0 {
+			fields := make([]string, 0, len(payload.ValidationErrors))
+			for field, messages := range payload.ValidationErrors {
+				if len(messages) > 0 {
+					fields = append(fields, field+": "+messages[0])
+				}
+			}
+			sort.Strings(fields) // map order is random, the message should not be
+			detail := strings.Join(fields, "; ")
+
+			if message == "" {
+				return detail
+			}
+			return message + " — " + detail
+		}
+
+		if message != "" {
+			return message
 		}
 	}
 
